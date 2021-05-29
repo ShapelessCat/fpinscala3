@@ -11,5 +11,7 @@ package fpinscala.streamingio
  */
 case class Eq[A, B] private(to: A => B, from: B => A)
 
-object Eq { def refl[A]: Eq[A, A] = Eq(identity, identity) }
+object Eq {
+  def refl[A]: Eq[A, A] = Eq(identity, identity)
+}
 

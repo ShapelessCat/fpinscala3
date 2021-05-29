@@ -65,11 +65,13 @@ object ReferenceTypes {
     * longer than s1, returns s1.length. */
   def firstNonmatchingIndex(s1: String, s2: String, offset: Int): Int = {
     var i = 0
-    while (i < s1.length && i < s2.length) {
-      if (s1.charAt(i+offset) != s2.charAt(i)) return i
+    while i < s1.length && i < s2.length do {
+      if s1.charAt(i+offset) != s2.charAt(i) then return i
       i += 1
     }
-    if (s1.length-offset >= s2.length) -1
+
+    if s1.length-offset >= s2.length
+    then -1
     else s1.length-offset
   }
 }
@@ -89,8 +91,8 @@ object Reference extends Parsers[Parser] {
   def or[A](p: Parser[A], p2: => Parser[A]): Parser[A] =
     s =>
       p(s) match {
-        case Failure(e,false) => p2(s)
-        case r                => r // committed failure or success skips running `p2`
+        case Failure(e, false) => p2(s)
+        case r                 => r  // committed failure or success skips running `p2`
       }
 
   def flatMap[A, B](f: Parser[A])(g: A => Parser[B]): Parser[B] =
@@ -104,17 +106,16 @@ object Reference extends Parsers[Parser] {
     val msg = "'" + w + "'"
     s => {
       val i = firstNonmatchingIndex(s.loc.input, w, s.loc.offset)
-      if (i == -1) // they matched
-        Success(w, w.length)
-      else
-        Failure(s.loc.advanceBy(i).toError(msg), i != 0)
+      if i == -1  // they matched
+      then Success(w, w.length)
+      else Failure(s.loc.advanceBy(i).toError(msg), i != 0)
     }
   }
 
   // note, regex matching is 'all-or-nothing':
   // failures are uncommitted
   def regex(r: Regex): Parser[String] = {
-    val msg = "regex " + r
+    val msg = s"regex $r"
     s =>
       r.findPrefixOf(s.input) match {
         case None    => Failure(s.loc.toError(msg), isCommitted = false)

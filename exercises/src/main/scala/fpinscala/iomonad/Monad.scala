@@ -12,10 +12,12 @@ trait Monad[F[_]] extends Functor[F] {
   infix def flatMap[A, B](a: F[A])(f: A => F[B]): F[B]
 
   infix def map[A, B](a: F[A])(f: A => B): F[B] =
-    flatMap(a)(a => unit(f(a)))
+    flatMap(a)(f andThen unit)
 
   def map2[A, B, C](a: F[A], b: F[B])(f: (A, B) => C): F[C] =
-    flatMap(a)(a => map(b)(b => f(a, b)))
+    flatMap(a) { a =>
+      map(b)(b => f(a, b))
+    }
 
   def sequence_[A](fs: LazyList[F[A]]): F[Unit] =
     foreachM(fs)(skip)
@@ -40,7 +42,9 @@ trait Monad[F[_]] extends Functor[F] {
     as(a)(())
 
   def when[A](b: Boolean)(fa: => F[A]): F[Boolean] =
-    if (b) as(fa)(true) else unit(false)
+    if b
+    then as(fa)(true)
+    else unit(false)
 
   def forever[A, B](a: F[A]): F[B] = {
     lazy val t: F[B] = a.flatMap(_ => t)
@@ -52,11 +56,11 @@ trait Monad[F[_]] extends Functor[F] {
     a.flatMap(c => skip(when(c)(t)))
   }
 
-  def doWhile[A](a: F[A])(cond: A => F[Boolean]): F[Unit] = for {
+  def doWhile[A](a: F[A])(cond: A => F[Boolean]): F[Unit] = for
     a1 <- a
     ok <- cond(a1)
-    _  <- if (ok) doWhile(a)(cond) else unit(())
-  } yield ()
+    _  <- if ok then doWhile(a)(cond) else unit(())
+  yield ()
 
   def foldM[A, B](l: LazyList[A])(z: B)(f: (B, A) => F[B]): F[B] =
     l match {
@@ -68,7 +72,9 @@ trait Monad[F[_]] extends Functor[F] {
     skip { foldM(l)(z)(f) }
 
   def foreachM[A](l: LazyList[A])(f: A => F[Unit]): F[Unit] =
-    foldM_(l)(())((_, a) => skip(f(a)))
+    foldM_(l)(()) { (_, a) =>
+      skip(f(a))
+    }
 
   def seq[A, B, C](f: A => F[B])(g: B => F[C]): A => F[C] =
     f andThen (fb => flatMap(fb)(g))

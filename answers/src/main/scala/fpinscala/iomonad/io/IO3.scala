@@ -123,7 +123,9 @@ object IO3 {
   type ~>[F[_], G[_]] = Translate[F, G]  // gives us infix syntax `F ~> G` for `Translate[F, G]`
 
   given function0Monad: Monad[Function0] = new Monad[Function0] {
-    def unit[A](a: => A) = () => a
+    def unit[A](a: => A) =
+      () => a
+
     def flatMap[A, B](a: Function0[A])(f: A => Function0[B]) =
       () => f(a())()
   }
@@ -169,14 +171,14 @@ object IO3 {
   // without going through `Par`. Hint: define `translate` using `runFree`.
 
   def translate[F[_], G[_], A](f: Free[F, A])(fg: F ~> G): Free[G, A] = {
-    type FreeG[B] = Free[G,B]
+    type FreeG[B] = Free[G, B]
     val t = new (F ~> FreeG) {
-      def apply[B](a: F[B]): Free[G,B] = Suspend { fg(a) }
+      def apply[B](a: F[B]): Free[G, B] = Suspend { fg(a) }
     }
     runFree(f)(t)(using freeMonad[G])
   }
 
-  def runConsole[A](a: Free[Console,A]): A =
+  def runConsole[A](a: Free[Console, A]): A =
     runTrampoline {
       translate(a)(
         new (Console ~> Function0) {
@@ -184,7 +186,6 @@ object IO3 {
         }
       )
     }
-
 
   /** There is nothing about `Free[Console, A]` that requires we interpret `Console` using side
    *  effects. Here are two pure ways of interpreting a `Free[Console, A]`.
@@ -210,8 +211,11 @@ object IO3 {
 
   object ConsoleState {
     given monad: Monad[ConsoleState] = new Monad[ConsoleState] {
-      def unit[A](a: => A) = ConsoleState(bufs => (a,bufs))
-      def flatMap[A,B](ra: ConsoleState[A])(f: A => ConsoleState[B]) = ra flatMap f
+      def unit[A](a: => A) =
+        ConsoleState(bufs => (a,bufs))
+
+      def flatMap[A, B](ra: ConsoleState[A])(f: A => ConsoleState[B]) =
+        ra flatMap f
     }
   }
 
@@ -226,8 +230,11 @@ object IO3 {
 
   object ConsoleReader {
     given monad: Monad[ConsoleReader] = new Monad[ConsoleReader] {
-      def unit[A](a: => A) = ConsoleReader(_ => a)
-      def flatMap[A, B](ra: ConsoleReader[A])(f: A => ConsoleReader[B]) = ra flatMap f
+      def unit[A](a: => A) =
+        ConsoleReader(_ => a)
+
+      def flatMap[A, B](ra: ConsoleReader[A])(f: A => ConsoleReader[B]) =
+        ra flatMap f
     }
   }
 

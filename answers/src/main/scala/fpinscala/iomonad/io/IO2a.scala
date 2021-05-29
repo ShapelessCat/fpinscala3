@@ -50,7 +50,9 @@ object IO2a {
     LazyList.fill(100000)(printLine("Still going..."))
 
   val composite: IO[Unit] =
-    actions.foldLeft(IO.unit(())) { (acc, a) => acc flatMap { _ => a } }
+    actions.foldLeft(IO.unit(())) { (acc, a) =>
+      acc flatMap { _ => a }
+    }
 
   // There is only one sensible way to implement this as a
   // tail-recursive function, the one tricky case is left-nested

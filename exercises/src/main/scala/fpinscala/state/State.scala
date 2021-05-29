@@ -1,8 +1,7 @@
 package fpinscala.state
 
-
 trait RNG {
-  def nextInt: (Int, RNG) // Should generate a random `Int`. We'll later define other functions in terms of `nextInt`.
+  def nextInt: (Int, RNG)  // Should generate a random `Int`. We'll later define other functions in terms of `nextInt`.
 }
 
 object RNG {
@@ -34,11 +33,11 @@ object RNG {
 
   def double(rng: RNG): (Double, RNG) = ???
 
-  def intDouble(rng: RNG): ((Int,Double), RNG) = ???
+  def intDouble(rng: RNG): ((Int, Double), RNG) = ???
 
-  def doubleInt(rng: RNG): ((Double,Int), RNG) = ???
+  def doubleInt(rng: RNG): ((Double, Int), RNG) = ???
 
-  def double3(rng: RNG): ((Double,Double,Double), RNG) = ???
+  def double3(rng: RNG): ((Double, Double, Double), RNG) = ???
 
   def ints(count: Int)(rng: RNG): (List[Int], RNG) = ???
 
@@ -60,9 +59,10 @@ case class State[S, +A](run: S => (A, S)) {
     ???
 }
 
-sealed trait Input
-case object Coin extends Input
-case object Turn extends Input
+enum Input {
+  case Coin
+  case Turn
+}
 
 case class Machine(locked: Boolean, candies: Int, coins: Int)
 

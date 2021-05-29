@@ -4,7 +4,7 @@ import fpinscala.monads.*
 
 object Mutable {
   def quicksort(xs: List[Int]): List[Int] =
-    if (xs.isEmpty)
+    if xs.isEmpty then
       xs
     else {
       val arr = xs.toArray
@@ -19,19 +19,21 @@ object Mutable {
         val pivotVal = arr(pivot)
         swap(pivot, r)
         var j = l
-        for (i <- l until r) if (arr(i) < pivotVal) {
-          swap(i, j)
-          j += 1
-        }
+        for i <- l until r do
+          if arr(i) < pivotVal then {
+            swap(i, j)
+            j += 1
+          }
         swap(j, r)
         j
       }
 
-      def qs(l: Int, r: Int): Unit = if (l < r) {
-        val pi = partition(l, r, l + (r - l) / 2)
-        qs(l, pi - 1)
-        qs(pi + 1, r)
-      }
+      def qs(l: Int, r: Int): Unit =
+        if l < r then {
+          val pi = partition(l, r, l + (r - l) / 2)
+          qs(l, pi - 1)
+          qs(pi + 1, r)
+        }
       qs(0, arr.length - 1)
       arr.toList
     }
@@ -91,7 +93,7 @@ trait RunnableST[A] {
 }
 
 // Scala requires an implicit Manifest for constructing arrays.
-sealed abstract class STArray[S,A](using manifest: Manifest[A]) {
+sealed abstract class STArray[S, A](using manifest: Manifest[A]) {
   protected def value: Array[A]
   def size: ST[S, Int] = ST(value.size)
 
@@ -111,12 +113,12 @@ sealed abstract class STArray[S,A](using manifest: Manifest[A]) {
 
   def fill(xs: Map[Int, A]): ST[S, Unit] = ???
 
-  def swap(i: Int, j: Int): ST[S, Unit] = for {
+  def swap(i: Int, j: Int): ST[S, Unit] = for
     x <- read(i)
     y <- read(j)
     _ <- write(i, y)
     _ <- write(j, x)
-  } yield ()
+  yield ()
 }
 
 object STArray {
@@ -139,24 +141,22 @@ object STArray {
 object Immutable {
   def noop[S]: ST[S, Unit] = ST[S,Unit](())
 
-  def partition[S](a: STArray[S,Int], l: Int, r: Int, pivot: Int): ST[S,Int] = ???
+  def partition[S](a: STArray[S, Int], l: Int, r: Int, pivot: Int): ST[S, Int] = ???
 
   def qs[S](a: STArray[S, Int], l: Int, r: Int): ST[S, Unit] = ???
 
   def quicksort(xs: List[Int]): List[Int] =
-    if (xs.isEmpty)
+    if xs.isEmpty then
       xs
     else
       ST.runST(
         new RunnableST[List[Int]] {
-          def apply[S] = for {
+          def apply[S] = for
             arr    <- STArray.fromList(xs)(using scala.reflect.Manifest.classType[Int](Int.getClass))  // TODO: ???
             size   <- arr.size
             _      <- qs(arr, 0, size - 1)
             sorted <- arr.freeze
-          } yield sorted
+          yield sorted
         }
       )
 }
-
-import scala.collection.mutable

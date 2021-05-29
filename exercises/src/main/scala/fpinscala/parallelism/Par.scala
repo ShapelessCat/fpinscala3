@@ -52,7 +52,9 @@ object Par {
     )
 
   def map[A, B](pa: Par[A])(f: A => B): Par[B] =
-    map2(pa, unit(()))((a,_) => f(a))
+    map2(pa, unit(())) { (a, _) =>
+      f(a)
+    }
 
   def sortPar(parList: Par[List[Int]]) = map(parList)(_.sorted)
 
@@ -64,7 +66,8 @@ object Par {
 
   def choice[A](cond: Par[Boolean])(t: Par[A], f: Par[A]): Par[A] =
     es => 
-      if (run(es)(cond).get) t(es) // Notice we are blocking on the result of `cond`.
+      if run(es)(cond).get
+      then t(es)  // Notice we are blocking on the result of `cond`.
       else f(es)
 
   /* Gives us infix syntax for `Par`. */
@@ -81,7 +84,7 @@ object Examples {
   // Unlike lists, these sequences provide an efficient `splitAt` method for dividing them into two
   // parts at a particular index.
   def sum(ints: IndexedSeq[Int]): Int =
-    if (ints.size <= 1)
+    if ints.size <= 1 then
       // `headOption` is a method defined on all collections in Scala. We saw this function
       // in chapter 3.
       ints.headOption getOrElse 0

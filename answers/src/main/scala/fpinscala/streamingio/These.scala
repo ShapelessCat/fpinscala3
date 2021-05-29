@@ -10,9 +10,9 @@ enum These[+A, +B] {
 
   def bimap[A2, B2](f: A => A2, g: B => B2): These[A2, B2] =
     this match {
-      case This(a)   => This(f(a))
-      case That(b)   => That(g(b))
-      case Both(a,b) => Both(f(a), g(b)) 
+      case This(a)    => This(f(a))
+      case That(b)    => That(g(b))
+      case Both(a, b) => Both(f(a), g(b))
     }
 
   def mapL[A2, B2 >: B](f: A => A2): These[A2, B2] =
@@ -29,12 +29,12 @@ enum These[+A, +B] {
 
 object These {
   def zipAll[A, B, C](a: Seq[A], b: Seq[B]): LazyList[These[A, B]] =
-    if (a.isEmpty)      b.to(LazyList).map(That(_))
-    else if (b.isEmpty) a.to(LazyList).map(This(_))
-    else                Both(a.head, b.head) #:: zipAll(a.tail, b.tail)
+    if a.isEmpty      then b.to(LazyList).map(That(_))
+    else if b.isEmpty then a.to(LazyList).map(This(_))
+    else                   Both(a.head, b.head) #:: zipAll(a.tail, b.tail)
   
   /** Zips together the two `Seq`s, returning the remaining elements of each (possibly empty). */
-  def zipResidual[A, B, C](a: Seq[A], b: Seq[B]): (Seq[(A,B)], Seq[A], Seq[B]) = {
+  def zipResidual[A, B, C](a: Seq[A], b: Seq[B]): (Seq[(A, B)], Seq[A], Seq[B]) = {
     val z = a zip b
     val len = z.length
     (z, a drop len, b drop len)

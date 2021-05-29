@@ -1,7 +1,7 @@
 package fpinscala.errorhandling
 
 // Hide std library `Option` and `Either`, since we are writing our own in this chapter
-import scala.{Option as _, Either as _, Left as _, Right as _, *}
+import scala.{Either as _, Left as _, Right as _, Option as _, None as _, Some as _}
 
 enum Either[+E, +A] {
   case Left(get: E)  extends Either[E, Nothing]
@@ -22,8 +22,9 @@ object Either {
   def sequence[E, A](es: List[Either[E, A]]): Either[E, List[A]] = ???
 
   def mean(xs: IndexedSeq[Double]): Either[String, Double] = 
-    if (xs.isEmpty) Left("mean of empty list!")
-    else            Right(xs.sum / xs.length)
+    if xs.isEmpty
+    then Left("mean of empty list!")
+    else Right(xs.sum / xs.length)
 
   def safeDiv(x: Int, y: Int): Either[Exception, Int] = 
     try Right(x / y)

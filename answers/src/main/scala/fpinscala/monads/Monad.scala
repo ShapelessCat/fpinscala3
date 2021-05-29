@@ -52,21 +52,22 @@ trait Monad[F[_]] extends Functor[F] {
       map2(f(a), mlb)(_ :: _)
     }
 
-  // For `List`, the `replicateM` function will generate a list of lists.
-  // It will contain all the lists of length `n` with elements selected from the
-  // input list.
-  // For `Option`, it will generate either `Some` or `None` based on whether the
-  // input is `Some` or `None`. The `Some` case will contain a list of length `n`
-  // that repeats the element in the input `Option`.
-  // The general meaning of `replicateM` is described very well by the
-  // implementation `sequence(List.fill(n)(ma))`. It repeats the `ma` monadic value
-  // `n` times and gathers the results in a single value, where the monad `M`
-  // determines how values are actually combined.
+  // For `List`, the `replicateM` function will generate a list of lists. It will contain all the
+  // lists of length `n` with elements selected from the input list.
+  //
+  // For `Option`, it will generate either `Some` or `None` based on whether the input is `Some` or
+  // `None`. The `Some` case will contain a list of length `n` that repeats the element in the input
+  // `Option`.
+  //
+  // The general meaning of `replicateM` is described very well by the implementation
+  // `sequence(List.fill(n)(ma))`. It repeats the `ma` monadic value `n` times and gathers the
+  // results in a single value, where the monad `M` determines how values are actually combined.
 
   // Recursive version:
   def _replicateM[A](n: Int, ma: F[A]): F[List[A]] =
-    if (n <= 0) unit(List.empty[A])
-    else        map2(ma, _replicateM(n - 1, ma))(_ :: _)
+    if n <= 0
+    then unit(List.empty[A])
+    else map2(ma, _replicateM(n - 1, ma))(_ :: _)
 
   // Using `sequence` and the `List.fill` function of the standard library:
   def replicateM[A](n: Int, ma: F[A]): F[List[A]] =
@@ -83,7 +84,7 @@ trait Monad[F[_]] extends Functor[F] {
 
   def filterM[A](ms: List[A])(f: A => F[Boolean]): F[List[A]] =
     ms.foldRight(unit(List.empty[A])) { (x, y) =>
-      compose(f, (b: Boolean) => if (b) map2(unit(x), y)(_ :: _) else y)(x)
+      compose(f, (b: Boolean) => if b then map2(unit(x), y)(_ :: _) else y)(x)
     }
 }
 
@@ -157,13 +158,13 @@ object Monad {
   }
 
   // But we don't have to create a full class like `StateMonads`. We can create
-  // an anonymous class inline, inside parentheses, and project out its type member,
-  // `lambda`:
-  def stateMonad[S] = new Monad[({type lambda[x] = State[S, x]})#lambda] {
+  // an anonymous class inline, inside parentheses, and project out its type member:
+  // `[X] =>> State[S, X]`:
+  def stateMonad[S] = new Monad[[X] =>> State[S, X]] {
     def unit[A](a: => A): State[S, A] =
       State(s => (a, s))
 
-    override def flatMap[A,B](st: State[S, A])(f: A => State[S, B]): State[S, B] =
+    override def flatMap[A, B](st: State[S, A])(f: A => State[S, B]): State[S, B] =
       st flatMap f
   }
 
@@ -171,7 +172,7 @@ object Monad {
     def unit[A](a: => A) =
       Id(a)
 
-    override def flatMap[A,B](ida: Id[A])(f: A => Id[B]): Id[B] =
+    override def flatMap[A, B](ida: Id[A])(f: A => Id[B]): Id[B] =
       ida flatMap f
   }
 
@@ -185,11 +186,11 @@ object Monad {
 
   def zipWithIndex[A](as: List[A]): List[(Int, A)] =
     as.foldLeft(F.unit(List.empty[(Int, A)])) { (acc, a) =>
-      for {
+      for
         xs <- acc
         n  <- getState
         _  <- setState(n + 1)
-      } yield (n, a) :: xs
+      yield (n, a) :: xs
     }.run(0)._1.reverse
 
   // The action of Reader's `flatMap` is to pass the `r` argument along to both the
@@ -214,7 +215,7 @@ object Monad {
     def unit[A](a: => A): Reader[R, A] =
       Reader(_ => a)
 
-    override def flatMap[A,B](st: Reader[R, A])(f: A => Reader[R, B]): Reader[R, B] =
+    override def flatMap[A, B](st: Reader[R, A])(f: A => Reader[R, B]): Reader[R, B] =
       Reader(r => f(st.run(r)).run(r))
   }
 }

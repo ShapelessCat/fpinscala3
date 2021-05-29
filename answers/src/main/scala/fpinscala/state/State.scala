@@ -1,7 +1,7 @@
 package fpinscala.state
 
 trait RNG {
-  def nextInt: (Int, RNG) // Should generate a random `Int`. We'll later define other functions in terms of `nextInt`.
+  def nextInt: (Int, RNG)  // Should generate a random `Int`. We'll later define other functions in terms of `nextInt`.
 }
 
 object RNG {
@@ -22,7 +22,7 @@ object RNG {
   // This maps Int.MinValue to Int.MaxValue and -1 to 0.
   def nonNegativeInt(rng: RNG): (Int, RNG) = {
     val (i, r) = rng.nextInt
-    (if (i < 0) -(i + 1) else i, r)
+    (if i < 0 then -(i + 1) else i, r)
   }
 
   // We generate an integer >= 0 and divide it by one higher than the
@@ -59,7 +59,7 @@ object RNG {
 
   // A simple recursive solution
   def ints(count: Int)(rng: RNG): (List[Int], RNG) =
-    if (count == 0)
+    if count == 0 then
       (Nil, rng)
     else {
       val (x, r1)  = rng.nextInt
@@ -71,7 +71,7 @@ object RNG {
   def ints2(count: Int)(rng: RNG): (List[Int], RNG) = {
     @annotation.tailrec
     def go(count: Int, r: RNG, xs: List[Int]): (List[Int], RNG) =
-      if (count == 0)
+      if count == 0 then
         (xs, r)
       else {
         val (x, r2) = r.nextInt
@@ -130,7 +130,9 @@ object RNG {
   // resulting list would appear in reverse order. It would be arguably better
   // to use `foldLeft` followed by `reverse`. What do you think?
   def sequence[A](fs: List[Rand[A]]): Rand[List[A]] =
-    fs.foldRight(unit(List.empty[A]))((f, acc) => map2(f, acc)(_ :: _))
+    fs.foldRight(unit(List.empty[A])) { (f, acc) =>
+      map2(f, acc)(_ :: _)
+    }
 
   // It's interesting that we never actually need to talk about the `RNG` value
   // in `sequence`. This is a strong hint that we could make this function
@@ -142,21 +144,23 @@ object RNG {
   def flatMap[A, B](f: Rand[A])(g: A => Rand[B]): Rand[B] =
     rng => {
       val (a, r1) = f(rng)
-      g(a)(r1) // We pass the new state along
+      g(a)(r1)  // We pass the new state along
     }
 
   def nonNegativeLessThan(n: Int): Rand[Int] = {
     flatMap(nonNegativeInt) { i =>
       val mod = i % n
-      if (i + (n-1) - mod >= 0) unit(mod) else nonNegativeLessThan(n)
+      if i + (n-1) - mod >= 0 then unit(mod) else nonNegativeLessThan(n)
     }
   }
 
   def _map[A, B](s: Rand[A])(f: A => B): Rand[B] =
-    flatMap(s)(a => unit(f(a)))
+    flatMap(s)(f andThen unit)
 
   def _map2[A, B, C](ra: Rand[A], rb: Rand[B])(f: (A, B) => C): Rand[C] =
-    flatMap(ra)(a => map(rb)(b => f(a, b)))
+    flatMap(ra) { a =>
+      map(rb)(b => f(a, b))
+    }
 }
 
 import State.*
@@ -165,10 +169,12 @@ import scala.annotation.tailrec
 
 case class State[S, +A](run: S => (A, S)) {
   infix def map[B](f: A => B): State[S, B] =
-    flatMap(a => unit(f(a)))
+    flatMap(f andThen unit)
 
   infix def map2[B, C](sb: State[S, B])(f: (A, B) => C): State[S, C] =
-    flatMap(a => sb.map(b => f(a, b)))
+    flatMap { a =>
+      sb.map(b => f(a, b))
+    }
 
   infix def flatMap[B](f: A => State[S, B]): State[S, B] = State(s => {
     val (a, s1) = run(s)
@@ -184,7 +190,9 @@ object State {
 
   // The idiomatic solution is expressed via foldRight
   def sequenceViaFoldRight[S, A](sas: List[State[S, A]]): State[S, List[A]] =
-    sas.foldRight(unit[S, List[A]](Nil))((f, acc) => f.map2(acc)(_ :: _))
+    sas.foldRight(unit[S, List[A]](Nil)) { (f, acc) =>
+      f.map2(acc)(_ :: _)
+    }
 
   // This implementation uses a loop internally and is the same recursion
   // pattern as a left fold. It is quite common with left folds to build
@@ -208,25 +216,30 @@ object State {
   // stack, not being tail recursive. And the call stack will be as tall as the list
   // is long.
   def sequenceViaFoldLeft[S, A](l: List[State[S, A]]): State[S, List[A]] =
-    l.reverse.foldLeft(unit[S, List[A]](Nil))((acc, f) => f.map2(acc)( _ :: _ ))
+    l.reverse.foldLeft(unit[S, List[A]](Nil)) { (acc, f) =>
+      f.map2(acc)( _ :: _ )
+    }
 
-  def modify[S](f: S => S): State[S, Unit] = for {
+  def modify[S](f: S => S): State[S, Unit] = for
     s <- get // Gets the current state and assigns it to `s`.
     _ <- set(f(s)) // Sets the new state to `f` applied to `s`.
-  } yield ()
+  yield ()
 
   def get[S]: State[S, S] = State(s => (s, s))
 
   def set[S](s: S): State[S, Unit] = State(_ => ((), s))
 }
 
-sealed trait Input
-case object Coin extends Input
-case object Turn extends Input
+enum Input {
+  case Coin
+  case Turn
+}
 
 case class Machine(locked: Boolean, candies: Int, coins: Int)
 
 object Candy {
+  import Input.*
+
   def update: Input => Machine => Machine =
     (i: Input) =>
       (s: Machine) =>
@@ -238,9 +251,9 @@ object Candy {
           case (Turn, Machine(false, candy, coin)) => Machine(locked = true, candy - 1, coin)
         }
 
-  def simulateMachine(inputs: List[Input]): State[Machine, (Int, Int)] = for {
+  def simulateMachine(inputs: List[Input]): State[Machine, (Int, Int)] = for
     _ <- sequence(inputs map (modify[Machine] compose update))
     s <- get
-  } yield (s.coins, s.candies)
+  yield (s.coins, s.candies)
 }
 

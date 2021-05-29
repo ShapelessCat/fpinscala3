@@ -12,7 +12,7 @@ enum Throw[+A] {
   case Done(a: A)
   case More(thunk: () => Throw[A])
 
-  import Throw.{given, *}
+  import Throw.*
 
   @annotation.tailrec
   final def run: A = this match {
@@ -35,7 +35,7 @@ object Throw extends Monad[Throw] {
   def ap[A, B](a: A)(f: A => B): B = {
     var ai: Any = a
     var fi: Any => Any = f.asInstanceOf[Any => Any]
-    while (true) {
+    while true do {
       try return fi(ai).asInstanceOf[B]
       catch {
         case Call(a2, f2) =>

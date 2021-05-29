@@ -36,10 +36,9 @@ import annotation.tailrec
  * @param strategy Execution strategy, for example, a strategy that is backed by an `ExecutorService`
  * @tparam A       The type of messages accepted by this actor.
  */
-final class Actor[A](strategy: Strategy)(handler: A => Unit, onError: Throwable => Unit = throw(_)) {
-  self =>
+final class Actor[A](strategy: Strategy)(handler: A => Unit, onError: Throwable => Unit = throw(_)) { self =>
 
-  private val tail = new AtomicReference(new Node[A]())
+  private val tail = new AtomicReference(Node.default[A])
   private val suspended = new AtomicInteger(1)
   private val head = new AtomicReference(tail.get)
 
@@ -51,15 +50,14 @@ final class Actor[A](strategy: Strategy)(handler: A => Unit, onError: Throwable 
   }
 
   /** Pass the message `a` to the mailbox of this actor */
-  def apply(a: A): Unit = {
+  def apply(a: A): Unit =
     this ! a
-  }
 
   def contramap[B](f: B => A): Actor[B] =
     new Actor[B](strategy)((b: B) => (this ! f(b)), onError)
 
   private def trySchedule(): Unit = {
-    if (suspended.compareAndSet(1, 0)) schedule()
+    if suspended.compareAndSet(1, 0) then schedule()
   }
 
   private def schedule(): Unit = {
@@ -69,31 +67,35 @@ final class Actor[A](strategy: Strategy)(handler: A => Unit, onError: Throwable 
   private def act(): Unit = {
     val t = tail.get
     val n = batchHandle(t, 1024)
-    if (n ne t) {
+    if n ne t then {
       n.a = null.asInstanceOf[A]
       tail.lazySet(n)
       schedule()
     } else {
       suspended.set(1)
-      if (n.get ne null) trySchedule()
+      if n.get ne null then trySchedule()
     }
   }
 
   @tailrec
   private def batchHandle(t: Node[A], i: Int): Node[A] = {
     val n = t.get
-    if (n ne null) {
+    if n ne null then {
       try {
         handler(n.a)
       } catch {
         case ex: Throwable => onError(ex)
       }
-      if (i > 0) batchHandle(n, i - 1) else n
+      if i > 0 then batchHandle(n, i - 1) else n
     } else t
   }
 }
 
-private class Node[A](var a: A = null.asInstanceOf[A]) extends AtomicReference[Node[A]]
+private class Node[A](var a: A) extends AtomicReference[Node[A]]
+private object Node {
+  def default[A]: Node[A] =
+    Node(null.asInstanceOf[A])
+}
 
 object Actor {
 
@@ -120,7 +122,11 @@ object Strategy {
    */
   def fromExecutorService(es: ExecutorService): Strategy = new Strategy {
     def apply[A](a: => A): () => A = {
-      val f = es.submit { new Callable[A] { def call = a} }
+      val f = es.submit {
+        new Callable[A] {
+          def call = a
+        }
+      }
       () => f.get
     }
   }

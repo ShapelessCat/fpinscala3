@@ -25,11 +25,18 @@ object IO1 {
   }
 
   object IO extends Monad[IO] {
-    def unit[A](a: => A): IO[A] = new IO[A] { def run: A = a }
-    def flatMap[A,B](fa: IO[A])(f: A => IO[B]): IO[B] = fa.flatMap(f)
-    def apply[A](a: => A): IO[A] = unit(a)  // syntax for IO { .. }
+    def unit[A](a: => A): IO[A] =
+      new IO[A] { def run: A = a }
 
-    def ref[A](a: A): IO[IORef[A]] = IO { new IORef(a) }
+    def flatMap[A, B](fa: IO[A])(f: A => IO[B]): IO[B] =
+      fa.flatMap(f)
+
+    def apply[A](a: => A): IO[A] =
+      unit(a)  // syntax for IO { .. }
+
+    def ref[A](a: A): IO[IORef[A]] =
+      IO { new IORef(a) }
+
     sealed class IORef[A](var value: A) {
       def set(a: A): IO[A] = IO { value = a; a }
       def get: IO[A] = IO { value }
@@ -42,13 +49,13 @@ object IO1 {
   def ReadLine: IO[String] = IO { readLine() }
   def PrintLine(msg: String): IO[Unit] = IO { println(msg) }
 
-  def converter: IO[Unit] = for {
+  def converter: IO[Unit] = for
     _ <- PrintLine("Enter a temperature in degrees Fahrenheit: ")
     d <- ReadLine.map(_.toDouble)
     _ <- PrintLine(fahrenheitToCelsius(d).toString)
-  } yield ()
+  yield ()
 
-  /*                         Some other examples                      */
+  /*                         Some other examples                         */
 
   import IO.*  // import all the `IO` combinators that come from `Monad`
 
@@ -58,7 +65,7 @@ object IO1 {
   // Parses an `Int` by reading a line from the console.
   val readInt: IO[Int] = ReadLine.map(_.toInt)
 
-  // Parses an `(Int,Int)` by reading two lines from the console.
+  // Parses an `(Int, Int)` by reading two lines from the console.
   val readInts: IO[(Int, Int)] = readInt ** readInt
 
   // Repeat `converter` 5 times, discarding the results (which are
@@ -89,20 +96,20 @@ object IO1 {
                      | <anything else> - bomb with horrible error
   """.trim.stripMargin
 
-  def factorial(n: Int): IO[Int] = for {
-    acc <- ref(1)
-    _ <- foreachM ((1 to n).to(LazyList)) (i => acc.modify(_ * i).skip)
+  def factorial(n: Int): IO[Int] = for
+    acc    <- ref(1)
+    _      <- foreachM ((1 to n).to(LazyList)) (i => acc.modify(_ * i).skip)
     result <- acc.get
-  } yield result
+  yield result
 
   val factorialREPL: IO[Unit] = sequence_(
     IO { println(helpstring) },
     doWhile { IO { readLine() } } { line =>
       val ok = line != "q"
-      when (ok) { for {
+      when (ok) { for
         n <- factorial(line.toInt)
         _ <- IO { println("factorial: " + n) }
-      } yield () }
+      yield () }
     }
   )
 }

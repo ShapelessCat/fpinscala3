@@ -1,7 +1,7 @@
 package fpinscala.errorhandling
 
 // Hide standard library `Option` and `Either`, since we are writing our own in this chapter
-import scala.{Either as _, Option as _, Some as _, *}
+import scala.{Either as _, Left as _, Right as _, Option as _, None as _, Some as _}
 
 enum Option[+A] {
   case Some(get: A)
@@ -42,7 +42,7 @@ enum Option[+A] {
 
   // This can also be defined in terms of `flatMap`.
   def filter_1(f: A => Boolean): Option[A] =
-    flatMap(a => if (f(a)) Some(a) else None)
+    flatMap(a => if f(a) then Some(a) else None)
 }
 
 object Option {
@@ -69,8 +69,9 @@ object Option {
   }
 
   def mean(xs: Seq[Double]): Option[Double] =
-    if (xs.isEmpty) None
-    else            Some(xs.sum / xs.length)
+    if xs.isEmpty
+    then None
+    else Some(xs.sum / xs.length)
 
   def variance(xs: Seq[Double]): Option[Double] =
     mean(xs).flatMap { m =>
@@ -95,7 +96,9 @@ object Option {
   // reports a type error (try it!). This is an unfortunate consequence of Scala using subtyping to
   // encode algebraic data types.
   def sequence_1[A](a: List[Option[A]]): Option[List[A]] =
-    a.foldRight[Option[List[A]]](Some(Nil))((x, y) => map2(x, y)(_ :: _))
+    a.foldRight[Option[List[A]]](Some(Nil)) { (x, y) =>
+      map2(x, y)(_ :: _)
+    }
 
   def traverse[A, B](a: List[A])(f: A => Option[B]): Option[List[B]] =
     a match {
@@ -104,7 +107,9 @@ object Option {
     }
 
   def traverse_1[A, B](a: List[A])(f: A => Option[B]): Option[List[B]] =
-    a.foldRight[Option[List[B]]](Some(Nil))((h, t) => map2(f(h), t)(_ :: _))
+    a.foldRight[Option[List[B]]](Some(Nil)){ (h, t) =>
+      map2(f(h), t)(_ :: _)
+    }
 
   def sequenceViaTraverse[A](a: List[Option[A]]): Option[List[A]] =
     traverse(a)(identity)

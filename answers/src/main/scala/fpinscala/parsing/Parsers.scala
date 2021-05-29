@@ -4,8 +4,9 @@ import fpinscala.testing.Prop.*
 import fpinscala.testing.*
 
 import java.util.regex.*
-import scala.language.implicitConversions
 import scala.util.matching.Regex
+
+import scala.language.implicitConversions
 
 trait Parsers[Parser[+_]] { self =>  // so inner classes may call methods of trait
   def run[A](p: Parser[A])(input: String): Either[ParseError, A]
@@ -40,8 +41,9 @@ trait Parsers[Parser[+_]] { self =>  // so inner classes may call methods of tra
     map2(p, many(p))(_ :: _)
 
   def listOfN[A](n: Int, p: Parser[A]): Parser[List[A]] =
-    if (n <= 0) succeed(Nil)
-    else        map2(p, listOfN(n-1, p))(_ :: _)
+    if n <= 0
+    then succeed(Nil)
+    else map2(p, listOfN(n-1, p))(_ :: _)
 
   def many[A](p: Parser[A]): Parser[List[A]] =
     map2(p, many(p))(_ :: _) or succeed(Nil)
@@ -50,7 +52,8 @@ trait Parsers[Parser[+_]] { self =>  // so inner classes may call methods of tra
 
   def flatMap[A, B](p: Parser[A])(f: A => Parser[B]): Parser[B]
 
-  implicit def regex(r: Regex): Parser[String]
+  def regex(r: Regex): Parser[String]
+  given Conversion[Regex, Parser[String]] = regex(_)
 
   /** These can be implemented using a for-comprehension, which delegates to the `flatMap` and `map`
    *  implementations we've provided on `ParserOps`, or they can be implemented in terms of these
@@ -62,10 +65,10 @@ trait Parsers[Parser[+_]] { self =>  // so inner classes may call methods of tra
     }
 
   def map2[A, B, C](p: Parser[A], p2: => Parser[B])(f: (A, B) => C): Parser[C] =
-    for {
+    for
       a <- p
       b <- p2
-    } yield f(a, b)
+    yield f(a, b)
 
   def map[A, B](a: Parser[A])(f: A => B): Parser[B] =
     flatMap(a)(f andThen succeed)
@@ -79,12 +82,12 @@ trait Parsers[Parser[+_]] { self =>  // so inner classes may call methods of tra
   /** Sequences two parsers, ignoring the result of the first.
     * We wrap the ignored half in slice, since we don't care about its result. */
   def skipL[B](p: Parser[Any], p2: => Parser[B]): Parser[B] =
-    map2(slice(p), p2)((_, b) => b)
+    map2(slice(p), p2) { (_, b) => b }
 
   /** Sequences two parsers, ignoring the result of the second.
     * We wrap the ignored half in slice, since we don't care about its result. */
   def skipR[A](p: Parser[A], p2: => Parser[Any]): Parser[A] =
-    map2(p, slice(p2))((a, b) => a)
+    map2(p, slice(p2)) { (a, _) => a }
 
   def opt[A](p: Parser[A]): Parser[Option[A]] =
     p.map(Some(_)) or succeed(None)
@@ -115,7 +118,9 @@ trait Parsers[Parser[+_]] { self =>  // so inner classes may call methods of tra
 
   /** Floating point literals, converted to a `Double`. */
   def double: Parser[Double] =
-    doubleString.map(_.toDouble).label("double literal")
+    doubleString
+      .map(_.toDouble)
+      .label("double literal")
 
   /** Attempts `p` and strips trailing whitespace, usually used for the tokens of a grammar. */
   def token[A](p: Parser[A]): Parser[A] =
@@ -196,6 +201,7 @@ trait Parsers[Parser[+_]] { self =>  // so inner classes may call methods of tra
 
 case class Location(input: String, offset: Int = 0) {
   lazy val line: Int = input.slice(0, offset+1).count(_ == '\n') + 1
+
   lazy val col: Int = input.slice(0, offset+1).lastIndexOf('\n') match {
     case -1        => offset + 1
     case lineStart => offset - lineStart
@@ -208,8 +214,9 @@ case class Location(input: String, offset: Int = 0) {
 
   /** Returns the line corresponding to this location */
   def currentLine: String =
-    if (input.length > 1) input.lines.skip(line - 1L).iterator().next()
-    else                  ""
+    if input.length > 1
+    then input.lines.skip(line - 1L).iterator().next()
+    else ""
 
   def columnCaret: String =
     (" " * (col-1)) + "^"
@@ -220,7 +227,7 @@ case class ParseError(stack: List[(Location, String)] = Nil) {
     copy(stack = (loc, msg) :: stack)
 
   def label[A](s: String): ParseError =
-    ParseError(latestLoc.map((_,s)).toList)
+    ParseError(latestLoc.map((_, s)).toList)
 
   def latest: Option[(Location, String)] =
     stack.lastOption
@@ -242,15 +249,16 @@ case class ParseError(stack: List[(Location, String)] = Nil) {
   { "MSFT" ; 24,
   */
   override def toString =
-    if (stack.isEmpty) "no error message"
+    if stack.isEmpty then
+      "no error message"
     else {
       val collapsed = collapseStack(stack)
       val context =
         collapsed.lastOption.map("\n\n" + _._1.currentLine).getOrElse("") +
-        collapsed.lastOption.map("\n" + _._1.columnCaret).getOrElse("")
+          collapsed.lastOption.map("\n" + _._1.columnCaret).getOrElse("")
 
-      collapsed.map { case (loc,msg) =>
-        loc.line.toString + "." + loc.col + " " + msg
+      collapsed.map { (loc, msg) =>
+        s"${loc.line}.${loc.col} $msg"
       }.mkString("\n") + context
     }
 

@@ -34,7 +34,7 @@ object IO2b {
       a flatMap f
 
     def suspend[A](a: => TailRec[A]): TailRec[A] =
-      Suspend(() => ()).flatMap { _ => a }
+      Suspend(() => ()).flatMap(_ => a)
   }
 
   import TailRec.*

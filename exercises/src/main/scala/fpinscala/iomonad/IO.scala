@@ -60,7 +60,7 @@ object IO1 {
 
   object IO extends Monad[IO] {
     def unit[A](a: => A): IO[A] = new IO[A] { def run = a }
-    def flatMap[A,B](fa: IO[A])(f: A => IO[B]) = fa flatMap f
+    def flatMap[A, B](fa: IO[A])(f: A => IO[B]) = fa flatMap f
     def apply[A](a: => A): IO[A] = unit(a)  // syntax for IO { .. }
 
     def ref[A](a: A): IO[IORef[A]] = IO { new IORef(a) }
@@ -77,11 +77,11 @@ object IO1 {
   def PrintLine(msg: String): IO[Unit] = IO { println(msg) }
   import IO0.fahrenheitToCelsius
 
-  def converter: IO[Unit] = for {
+  def converter: IO[Unit] = for
     _ <- PrintLine("Enter a temperature in degrees Fahrenheit: ")
     d <- ReadLine.map(_.toDouble)
     _ <- PrintLine(fahrenheitToCelsius(d).toString)
-  } yield ()
+  yield ()
 
   /*                         Some other examples                      */
 
@@ -93,7 +93,7 @@ object IO1 {
   // Parses an `Int` by reading a line from the console.
   val readInt: IO[Int] = ReadLine.map(_.toInt)
 
-  // Parses an `(Int,Int)` by reading two lines from the console.
+  // Parses an `(Int, Int)` by reading two lines from the console.
   val readInts: IO[(Int, Int)] = readInt ** readInt
 
   // Repeat `converter` 5 times, discarding the results (which are
@@ -124,20 +124,20 @@ object IO1 {
   | <anything else> - bomb with horrible error
   """.trim.stripMargin
 
-  def factorial(n: Int): IO[Int] = for {
+  def factorial(n: Int): IO[Int] = for
     acc    <- ref(1)
     _      <- foreachM ((1 to n).to(LazyList)) (i => acc.modify(_ * i).skip)
     result <- acc.get
-  } yield result
+  yield result
 
   val factorialREPL: IO[Unit] = sequence_(
     IO { println(helpstring) },
     doWhile { IO { readLine() } } { line =>
       val ok = line != "q"
-      when (ok) { for {
+      when (ok) { for
         n <- factorial(line.toInt)
         _ <- IO { println("factorial: " + n) }
-      } yield () }
+      yield () }
     }
   )
 }
@@ -360,9 +360,9 @@ object IO3 {
     infix def map[B](f: A => B): Free[F, B] =
       flatMap(f andThen (Return(_)))
   }
-  case class Return[F[_],A](a: A) extends Free[F, A]
-  case class Suspend[F[_],A](s: F[A]) extends Free[F, A]
-  case class FlatMap[F[_],A,B](s: Free[F, A], f: A => Free[F, B]) extends Free[F, B]
+  case class Return[F[_], A](a: A) extends Free[F, A]
+  case class Suspend[F[_], A](s: F[A]) extends Free[F, A]
+  case class FlatMap[F[_], A, B](s: Free[F, A], f: A => Free[F, B]) extends Free[F, B]
 
   // Exercise 1: Implement the free monad
   def freeMonad[F[_]]: Monad[[A] =>> Free[F, A]] = ???
@@ -372,7 +372,7 @@ object IO3 {
   def runTrampoline[A](a: Free[Function0, A]): A = ???
 
   // Exercise 3: Implement a `Free` interpreter which works for any `Monad`
-  def run[F[_], A](a: Free[F, A])(implicit F: Monad[F]): F[A] = ???
+  def run[F[_], A](a: Free[F, A])(using F: Monad[F]): F[A] = ???
 
   // return either a `Suspend`, a `Return`, or a right-associated `FlatMap`
   // @annotation.tailrec
@@ -484,7 +484,7 @@ object IO3 {
 
   def translate[F[_], G[_], A](f: Free[F, A])(fg: F ~> G): Free[G, A] = ???
 
-  def runConsole[A](a: Free[Console,A]): A = ???
+  def runConsole[A](a: Free[Console, A]): A = ???
 
   /** There is nothing about `Free[Console, A]` that requires we interpret `Console` using side
    *  effects. Here are two pure ways of interpreting a `Free[Console, A]`.
@@ -510,8 +510,8 @@ object IO3 {
 
   object ConsoleState {
     given monad: Monad[ConsoleState] = new Monad[ConsoleState] {
-      def unit[A](a: => A) = ConsoleState(bufs => (a,bufs))
-      def flatMap[A,B](ra: ConsoleState[A])(f: A => ConsoleState[B]) = ra flatMap f
+      def unit[A](a: => A) = ConsoleState(bufs => (a, bufs))
+      def flatMap[A, B](ra: ConsoleState[A])(f: A => ConsoleState[B]) = ra flatMap f
     }
   }
 

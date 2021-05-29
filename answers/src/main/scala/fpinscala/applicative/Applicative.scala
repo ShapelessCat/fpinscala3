@@ -148,7 +148,7 @@ object Monad {
     new Monad[[X] =>> Either[E, X]] {
       def unit[A](a: => A): Either[E, A] = Right(a)
 
-      override def flatMap[A,B](eea: Either[E, A])(f: A => Either[E, B]) = eea match {
+      override def flatMap[A, B](eea: Either[E, A])(f: A => Either[E, B]) = eea match {
         case Right(a) => f(a)
         case Left(b)  => Left(b)
       }
@@ -187,74 +187,95 @@ trait Traverse[F[_]] extends Functor[F] with Foldable[F] { self =>
     override def flatMap[A, B](a: A)(f: A => B): B = f(a)
   }
 
-  def map[A,B](fa: F[A])(f: A => B): F[B] =
+  def map[A, B](fa: F[A])(f: A => B): F[B] =
     traverse[Id, A, B](fa)(f)(using idMonad)
 
   import Applicative.{given , *}
 
   override def foldMap[A, B](as: F[A])(f: A => B)(mb: Monoid[B]): B =
-    traverse[[X] =>> Const[B,X], A, Nothing](as)(f)(using monoidApplicative(mb))
+    traverse[[X] =>> Const[B, X], A, Nothing](as)(f)(using monoidApplicative(mb))
 
   def traverseS[S, A, B](fa: F[A])(f: A => State[S, B]): State[S, F[B]] =
     traverse[[X] =>> State[S, X], A, B](fa)(f)(using Monad.stateMonad)
 
   def zipWithIndex_[A](ta: F[A]): F[(A, Int)] =
-    traverseS(ta)((a: A) => (for {
-      i <- get[Int]
-      _ <- set(i + 1)
-    } yield (a, i))).run(0)._1
+    traverseS(ta) { (a: A) =>
+      for
+        i <- get[Int]
+        _ <- set(i + 1)
+      yield (a, i)
+    }.run(0)._1
 
   def toList_[A](fa: F[A]): List[A] =
-    traverseS(fa)((a: A) => (for {
-      as <- get[List[A]]   // Get the current state, the accumulated list.
-      _  <- set(a :: as)   // Add the current element and set the new list as the new state.
-    } yield ())).run(Nil)._2.reverse
+    traverseS(fa) { (a: A) =>
+      for
+        as <- get[List[A]]   // Get the current state, the accumulated list.
+        _  <- set(a :: as)   // Add the current element and set the new list as the new state.
+      yield ()
+    }.run(Nil)._2.reverse
 
   def mapAccum[S, A, B](fa: F[A], s: S)(f: (A, S) => (B, S)): (F[B], S) =
-    traverseS(fa)((a: A) => (for {
-      s1 <- get[S]
-      (b, s2) = f(a, s1)
-      _  <- set(s2)
-    } yield b)).run(s)
+    traverseS(fa) { (a: A) =>
+      for
+        s1 <- get[S]
+        (b, s2) = f(a, s1)
+        _  <- set(s2)
+      yield b
+    }.run(s)
 
   override def toList[A](fa: F[A]): List[A] =
-    mapAccum(fa, List.empty[A])((a, s) => ((), a :: s))._2.reverse
+    mapAccum(fa, List.empty[A]) { (a, s) =>
+      ((), a :: s)
+    }._2.reverse
 
   def zipWithIndex[A](fa: F[A]): F[(A, Int)] =
-    mapAccum(fa, 0)((a, s) => ((a, s), s + 1))._1
+    mapAccum(fa, 0) { (a, s) =>
+      ((a, s), s + 1)
+    }._1
 
   def reverse[A](fa: F[A]): F[A] =
-    mapAccum(fa, toList(fa).reverse)((_, as) => (as.head, as.tail))._1
+    mapAccum(fa, toList(fa).reverse) { (_, as) =>
+      (as.head, as.tail)
+    }._1
 
   override def foldLeft[A, B](fa: F[A])(z: B)(f: (B, A) => B): B =
-    mapAccum(fa, z)((a, b) => ((), f(b, a)))._2
+    mapAccum(fa, z){ (a, b) =>
+      ((), f(b, a))
+    }._2
 
-  def zip[A, B](fa: F[A], fb: F[B]): F[(A, B)] =
-    (mapAccum(fa, toList(fb)) {
+  def zip[A, B](fa: F[A], fb: F[B]): F[(A, B)] = {
+    mapAccum(fa, toList(fb)) {
       case (a, Nil)     => sys.error("zip: Incompatible shapes.")
       case (a, b :: bs) => ((a, b), bs)
-    })._1
+    }
+  }._1
 
-  def zipL[A, B](fa: F[A], fb: F[B]): F[(A, Option[B])] =
-    (mapAccum(fa, toList(fb)) {
+  def zipL[A, B](fa: F[A], fb: F[B]): F[(A, Option[B])] = {
+    mapAccum(fa, toList(fb)) {
       case (a, Nil)     => ((a, None), Nil)
       case (a, b :: bs) => ((a, Some(b)), bs)
-    })._1
+    }
+  }._1
 
-  def zipR[A, B](fa: F[A], fb: F[B]): F[(Option[A], B)] =
-    (mapAccum(fb, toList(fa)) {
+  def zipR[A, B](fa: F[A], fb: F[B]): F[(Option[A], B)] = {
+    mapAccum(fb, toList(fa)) {
       case (b, Nil)     => ((None, b), Nil)
       case (b, a :: as) => ((Some(a), b), as)
-    })._1
+    }
+  }._1
 
   def fuse[M[_], N[_], A, B](fa: F[A])(f: A => M[B], g: A => N[B])
                             (using M: Applicative[M], N: Applicative[N]): (M[F[B]], N[F[B]]) =
-    traverse[[X] =>> (M[X], N[X]), A, B](fa)(a => (f(a), g(a)))(using M product N)
+    traverse[[X] =>> (M[X], N[X]), A, B](fa){ a =>
+      (f(a), g(a))
+    }(using M product N)
 
   def compose[G[_]](using G: Traverse[G]): Traverse[[X] =>> F[G[X]]] =
     new Traverse[[X] =>> F[G[X]]] {
-      override def traverse[M[_]: Applicative,A,B](fa: F[G[A]])(f: A => M[B]) =
-        self.traverse(fa)((ga: G[A]) => G.traverse(ga)(f))
+      override def traverse[M[_]: Applicative, A, B](fa: F[G[A]])(f: A => M[B]) =
+        self.traverse(fa){ (ga: G[A]) =>
+          G.traverse(ga)(f)
+        }
     }
 
 }
@@ -265,7 +286,9 @@ object Traverse {
 
   val listTraverse = new Traverse[List] {
     override def traverse[M[_], A, B](as: List[A])(f: A => M[B])(using M: Applicative[M]): M[List[B]] =
-      as.foldRight(M.unit(List.empty[B]))((a, fbs) => M.map2(f(a), fbs)(_ :: _))
+      as.foldRight(M.unit(List.empty[B])) { (a, fbs) =>
+        M.map2(f(a), fbs)(_ :: _)
+      }
   }
 
   val optionTraverse = new Traverse[Option] {
@@ -285,7 +308,7 @@ object Traverse {
   case class Iteration[A](a: A, f: A => A, n: Int) {
     def foldMap[B](g: A => B)(M: Monoid[B]): B = {
       def iterate(n: Int, b: B, c: A): B =
-        if (n <= 0) b else iterate(n-1, g(c), f(a))
+        if n <= 0 then b else iterate(n-1, g(c), f(a))
       iterate(n, M.zero, a)
     }
   }

@@ -10,29 +10,31 @@ import fpinscala.testing.Prop.*
 import java.util.concurrent.{ExecutorService, Executors}
 import scala.language.implicitConversions
 
-case class Prop(run: (MaxSize,TestCases,RNG) => Result) {
+case class Prop(run: (MaxSize, TestCases, RNG) => Result) {
+  import Result.*
+
   def &&(p: Prop): Prop = Prop {
-    (max,n,rng) => run(max,n,rng) match {
+    (max, n, rng) => run(max, n, rng) match {
       case Passed | Proved => p.run(max, n, rng)
-      case x => x
+      case x               => x
     }
   }
 
   def ||(p: Prop): Prop = Prop {
-    (max,n,rng) => run(max,n,rng) match {
+    (max, n, rng) => run(max, n, rng) match {
       // In case of failure, run the other prop.
-      case Falsified(msg, _) => p.tag(msg).run(max,n,rng)
-      case x => x
+      case Falsified(msg, _) => p.tag(msg).run(max, n, rng)
+      case x                 => x
     }
   }
 
-  /* This is rather simplistic - in the event of failure, we simply prepend
-   * the given message on a newline in front of the existing message.
+  /** This is rather simplistic - in the event of failure, we simply prepend
+   *  the given message on a newline in front of the existing message.
    */
   infix def tag(msg: String): Prop = Prop {
-    (max,n,rng) => run(max,n,rng) match {
+    (max, n, rng) => run(max, n, rng) match {
       case Falsified(e, c) => Falsified(msg + "\n" + e, c)
-      case x => x
+      case x               => x
     }
   }
 }
@@ -43,31 +45,33 @@ object Prop {
   type MaxSize = Int
   type FailedCase = String
 
-  sealed trait Result {
-    def isFalsified: Boolean
-  }
-  case object Passed extends Result {
-    def isFalsified = false
-  }
-  case class Falsified(failure: FailedCase,
-                       successes: SuccessCount) extends Result {
-    def isFalsified = true
-  }
-  case object Proved extends Result {
-    def isFalsified = false
+  enum Result {
+    case Falsified(failure: FailedCase, successes: SuccessCount)
+    case Passed
+    case Proved
+
+    def isFalsified: Boolean =
+      this != Passed && this != Proved
   }
 
+  import Result.*
 
-  /* Produce an infinite random stream from a `Gen` and a starting `RNG`. */
+  /** Produce an infinite random stream from a `Gen` and a starting `RNG`. */
   def randomStream[A](g: Gen[A])(rng: RNG): Stream[A] =
-    Stream.unfold(rng)(rng => Some(g.sample.run(rng)))
+    Stream.unfold(rng) { rng =>
+      Some(g.sample.run(rng))
+    }
 
   def forAll[A](as: Gen[A])(f: A => Boolean): Prop = Prop {
-    (n,rng) => randomStream(as)(rng).zip(Stream.from(0)).take(n).map {
-      case (a, i) => try {
-        if (f(a)) Passed else Falsified(a.toString, i)
-      } catch { case e: Exception => Falsified(buildMsg(a, e), i) }
-    }.find(_.isFalsified).getOrElse(Passed)
+    (n, rng) =>
+      randomStream(as)(rng)
+        .zip(Stream.from(0))
+        .take(n)
+        .map {
+          case (a, i) => try {
+            if f(a) then Passed else Falsified(a.toString, i)
+          } catch { case e: Exception => Falsified(buildMsg(a, e), i) }
+        }.find(_.isFalsified).getOrElse(Passed)
   }
 
 
@@ -76,38 +80,38 @@ object Prop {
   // This will be expanded to `v.toString` by the Scala compiler.
   def buildMsg[A](s: A, e: Exception): String =
     s"test case: $s\n" +
-    s"generated an exception: ${e.getMessage}\n" +
-    s"stack trace:\n ${e.getStackTrace.mkString("\n")}"
+      s"generated an exception: ${e.getMessage}\n" +
+      s"stack trace:\n ${e.getStackTrace.mkString("\n")}"
 
-  def apply(f: (TestCases,RNG) => Result): Prop =
-    Prop { (_,n,rng) => f(n,rng) }
+  def apply(f: (TestCases, RNG) => Result): Prop =
+    Prop { (_, n, rng) => f(n, rng) }
 
   def forAll[A](g: SGen[A])(f: A => Boolean): Prop =
     forAll(g(_))(f)
 
   def forAll[A](g: Int => Gen[A])(f: A => Boolean): Prop = Prop {
-    (max,n,rng) =>
+    (max, n, rng) =>
       val casesPerSize = (n - 1) / max + 1
-      val props: Stream[Prop] =
-        Stream.from(0).take((n min max) + 1).map(i => forAll(g(i))(f))
+      val props: Stream[Prop] = Stream.from(0).take((n min max) + 1).map { i =>
+        forAll(g(i))(f)
+      }
       val prop: Prop =
-        props.map(p => Prop { (max, n, rng) =>
-          p.run(max, casesPerSize, rng)
-        }).toList.reduce(_ && _)
-      prop.run(max,n,rng)
+        props.map { p =>
+          Prop { (max, n, rng) =>
+            p.run(max, casesPerSize, rng)
+          }
+        }.toList.reduce(_ && _)
+      prop.run(max, n, rng)
   }
 
   def run(p: Prop,
           maxSize: Int = 100,
           testCases: Int = 100,
-          rng: RNG = RNG.Simple(System.currentTimeMillis)): Unit =
+          rng: RNG = RNG.Simple(System.currentTimeMillis())): Unit =
     p.run(maxSize, testCases, rng) match {
-      case Falsified(msg, n) =>
-        println(s"! Falsified after $n passed tests:\n $msg")
-      case Passed =>
-        println(s"+ OK, passed $testCases tests.")
-      case Proved =>
-        println(s"+ OK, proved property.")
+      case Falsified(msg, n) => println(s"! Falsified after $n passed tests:\n $msg")
+      case Passed            => println(s"+ OK, passed $testCases tests.")
+      case Proved            => println(s"+ OK, proved property.")
     }
 
   val ES: ExecutorService = Executors.newCachedThreadPool
@@ -115,7 +119,7 @@ object Prop {
     Par.map(i)(_ + 1)(ES).get == Par.unit(2)(ES).get)
 
   def check(p: => Boolean): Prop = Prop { (_, _, _) =>
-    if (p) Passed else Falsified("()", 0)
+    if p then Passed else Falsified("()", 0)
   }
 
   val p2 = check {
@@ -125,7 +129,7 @@ object Prop {
   }
 
   def equal[A](p: Par[A], p2: Par[A]): Par[Boolean] =
-    Par.map2(p,p2)(_ == _)
+    Par.map2(p, p2)(_ == _)
 
   val p3 = check {
     equal (
@@ -135,37 +139,40 @@ object Prop {
   }
 
   val S = weighted(
-    choose(1,4).map(Executors.newFixedThreadPool) -> .75,
-    unit(Executors.newCachedThreadPool) -> .25) // `a -> b` is syntax sugar for `(a,b)`
+    choose(1, 4).map(Executors.newFixedThreadPool) -> .75,
+    unit(Executors.newCachedThreadPool) -> .25
+  )  // `a -> b` is syntax sugar for `(a,b)`
 
   def forAllPar[A](g: Gen[A])(f: A => Par[Boolean]): Prop =
-    forAll(S.map2(g)((_,_))) { case (s,a) => f(a)(s).get }
+    forAll(S.map2(g)((_, _))) { case (s, a) => f(a)(s).get }
 
   def checkPar(p: Par[Boolean]): Prop =
     forAllPar(Gen.unit(()))(_ => p)
 
   def forAllPar2[A](g: Gen[A])(f: A => Par[Boolean]): Prop =
-    forAll(S ** g) { case (s,a) => f(a)(s).get }
+    forAll(S ** g) { case (s, a) => f(a)(s).get }
 
   def forAllPar3[A](g: Gen[A])(f: A => Par[Boolean]): Prop =
     forAll(S ** g) { case s ** a => f(a)(s).get }
 
   val pint = Gen.choose(0,10).map(Par.unit)
-  val p4 =
-    forAllPar(pint)(n => equal(Par.map(n)(y => y), n))
+  val p4 = forAllPar(pint)(n => equal(Par.map(n)(y => y), n))
 
   val forkProp = Prop.forAllPar(pint2)(i => equal(Par.fork(i), i)) tag "fork"
 }
 
-case class Gen[+A](sample: State[RNG,A]) {
+case class Gen[+A](sample: State[RNG, A]) {
   infix def map[B](f: A => B): Gen[B] =
     Gen(sample.map(f))
 
   def map2[B, C](g: Gen[B])(f: (A, B) => C): Gen[C] =
     Gen(sample.map2(g.sample)(f))
 
-  infix def flatMap[B](f: A => Gen[B]): Gen[B] =
-    Gen(sample.flatMap(a => f(a).sample))
+  infix def flatMap[B](f: A => Gen[B]): Gen[B] = Gen {
+    sample.flatMap { a =>
+      f(a).sample
+    }
+  }
 
   /** A method alias for the function we wrote earlier. */
   def listOfN(size: Int): Gen[List[A]] =
@@ -173,7 +180,9 @@ case class Gen[+A](sample: State[RNG,A]) {
 
   /** A version of `listOfN` that generates the size to use dynamically. */
   def listOfN(size: Gen[Int]): Gen[List[A]] =
-    size flatMap (n => this.listOfN(n))
+    size flatMap { n =>
+      this.listOfN(n)
+    }
 
   def listOf: SGen[List[A]] = Gen.listOf(this)
   def listOf1: SGen[List[A]] = Gen.listOf1(this)
@@ -191,44 +200,53 @@ object Gen {
   val boolean: Gen[Boolean] =
     Gen(State(RNG.boolean))
 
-  def choose(start: Int, stopExclusive: Int): Gen[Int] =
-    Gen(State(RNG.nonNegativeInt).map(n => start + n % (stopExclusive-start)))
+  def choose(start: Int, stopExclusive: Int): Gen[Int] = Gen {
+    State(RNG.nonNegativeInt).map { n =>
+      start + n % (stopExclusive-start)
+    }
+  }
 
-  def listOfN[A](n: Int, g: Gen[A]): Gen[List[A]] =
-    Gen(State.sequence(List.fill(n)(g.sample)))
+  def listOfN[A](n: Int, g: Gen[A]): Gen[List[A]] = Gen {
+    State.sequence(List.fill(n)(g.sample))
+  }
 
   val uniform: Gen[Double] = Gen(State(RNG.double))
 
-  def choose(i: Double, j: Double): Gen[Double] =
-    Gen(State(RNG.double).map(d => i + d*(j-i)))
+  def choose(i: Double, j: Double): Gen[Double] = Gen {
+    State(RNG.double).map { d =>
+      i + d*(j-i)
+    }
+  }
 
   /** Basic idea is to add 1 to the result of `choose` if it is of the wrong parity, but we require
    *  some special handling to deal with the maximum integer in the range.
    */
   def even(start: Int, stopExclusive: Int): Gen[Int] =
-    choose(start, if (stopExclusive%2 == 0) stopExclusive - 1 else stopExclusive).
-    map (n => if (n%2 != 0) n+1 else n)
+    choose(start, if stopExclusive%2 == 0 then stopExclusive - 1 else stopExclusive).
+      map(n => if n%2 != 0 then n+1 else n)
 
   def odd(start: Int, stopExclusive: Int): Gen[Int] =
-    choose(start, if (stopExclusive%2 != 0) stopExclusive - 1 else stopExclusive).
-    map (n => if (n%2 == 0) n+1 else n)
+    choose(start, if stopExclusive%2 != 0 then stopExclusive - 1 else stopExclusive).
+      map(n => if n%2 == 0 then n+1 else n)
 
-  def sameParity(from: Int, to: Int): Gen[(Int, Int)] = for {
+  def sameParity(from: Int, to: Int): Gen[(Int, Int)] = for
     i <- choose(from, to)
-    j <- if (i%2 == 0) even(from, to) else odd(from, to)
-  } yield (i, j)
+    j <- if i%2 == 0 then even(from, to) else odd(from, to)
+  yield (i, j)
 
   def listOfN_1[A](n: Int, g: Gen[A]): Gen[List[A]] =
-    List.fill(n)(g).foldRight(unit(List.empty[A]))((a, b) => a.map2(b)(_ :: _))
+    List.fill(n)(g).foldRight(unit(List.empty[A])) { (a, b) =>
+      a.map2(b)(_ :: _)
+    }
 
   def union[A](g1: Gen[A], g2: Gen[A]): Gen[A] =
-    boolean.flatMap(b => if (b) g1 else g2)
+    boolean.flatMap(b => if b then g1 else g2)
 
-  def weighted[A](g1: (Gen[A],Double), g2: (Gen[A],Double)): Gen[A] = {
-    /* The probability we should pull from `g1`. */
+  def weighted[A](g1: (Gen[A], Double), g2: (Gen[A], Double)): Gen[A] = {
+    // The probability we should pull from `g1`.
     val g1Threshold = g1._2.abs / (g1._2.abs + g2._2.abs)
 
-    Gen(State(RNG.double).flatMap(d => if (d < g1Threshold) g1._1.sample else g2._1.sample))
+    Gen(State(RNG.double).flatMap(d => if d < g1Threshold then g1._1.sample else g2._1.sample))
   }
 
   def listOf[A](g: Gen[A]): SGen[List[A]] =
@@ -242,7 +260,8 @@ object Gen {
 
   val string: SGen[String] = SGen(stringN)
 
-  implicit def unsized[A](g: Gen[A]): SGen[A] = SGen(_ => g)
+  given unsized[A]: Conversion[Gen[A], SGen[A]] =
+    g => SGen(_ => g)
 
   val smallInt = Gen.choose(-10,10)
   val maxProp = forAll(listOf(smallInt)) { l =>
@@ -279,8 +298,10 @@ object Gen {
   lazy val pint2: Gen[Par[Int]] =
     choose(-100,100)
       .listOfN(choose(0,20))
-      .map { l => l.foldLeft(Par.unit(0))((p, i) =>
-        Par.fork { Par.map2(p, Par.unit(i))(_ + _) })
+      .map { l =>
+        l.foldLeft(Par.unit(0)) { (p, i) =>
+          Par.fork { Par.map2(p, Par.unit(i))(_ + _) }
+        }
       }
 
   def genStringIntFn(g: Gen[Int]): Gen[String => Int] =
@@ -294,13 +315,13 @@ case class SGen[+A](g: Int => Gen[A]) {
     SGen { g(_) map f }
 
   def flatMap[B](f: A => SGen[B]): SGen[B] = {
-    val g2: Int => Gen[B] = n => {
-      g(n) flatMap { f(_).g(n) }
-    }
+    val g2: Int => Gen[B] =
+      n => g(n).flatMap { f(_).g(n) }
+
     SGen(g2)
   }
 
-  def **[B](s2: SGen[B]): SGen[(A,B)] =
+  def **[B](s2: SGen[B]): SGen[(A, B)] =
     SGen(n => apply(n) ** s2(n))
 }
 

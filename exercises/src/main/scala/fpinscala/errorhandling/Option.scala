@@ -1,7 +1,7 @@
 package fpinscala.errorhandling
 
 // Hide std library `Option`, `Some` and `Either`, since we are writing our own in this chapter
-import scala.{Either as _, Option as _, Some as _, *}
+import scala.{Either as _, Left as _, Right as _, Option as _, None as _, Some as _}
 
 enum Option[+A] {
   case Some(get: A)
@@ -20,7 +20,8 @@ enum Option[+A] {
 
 object Option {
   def failingFn(i: Int): Int = {
-    // `val y: Int = ...` declares `y` as having type `Int`, and sets it equal to the right hand side of the `=`.
+    // `val y: Int = ...` declares `y` as having type `Int`, and sets it equal to the right hand
+    // side of the `=`.
     val y: Int = throw new Exception("fail!")
     try {
       val x = 42 + 5
@@ -42,8 +43,9 @@ object Option {
   }
 
   def mean(xs: Seq[Double]): Option[Double] =
-    if (xs.isEmpty) None
-    else            Some(xs.sum / xs.length)
+    if xs.isEmpty
+    then None
+    else Some(xs.sum / xs.length)
 
   def variance(xs: Seq[Double]): Option[Double] = ???
 

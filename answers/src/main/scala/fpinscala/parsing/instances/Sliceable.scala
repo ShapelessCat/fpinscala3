@@ -112,11 +112,13 @@ object SliceableTypes {
     * longer than s1, returns s.length. */
   def firstNonmatchingIndex(s: String, s2: String, offset: Int): Int = {
     var i = 0
-    while (i+offset < s.length && i < s2.length) {
-      if (s.charAt(i+offset) != s2.charAt(i)) return i
+    while i+offset < s.length && i < s2.length do {
+      if s.charAt(i+offset) != s2.charAt(i) then return i
       i += 1
     }
-    if (s.length-offset >= s2.length) -1
+
+    if s.length-offset >= s2.length
+    then -1
     else s.length-offset
   }
 }
@@ -199,9 +201,10 @@ object Sliceable extends Parsers[Parser] {
     val msg = "'" + w + "'"
     s => {
       val i = firstNonmatchingIndex(s.loc.input, w, s.loc.offset)
-      if (i == -1) {  // they matched
-        if (s.isSliced) Slice(w.length)
-        else            Success(w, w.length)
+      if i == -1 then {  // they matched
+        if s.isSliced
+        then Slice(w.length)
+        else Success(w, w.length)
       }
       else
         Failure(s.loc.advanceBy(i).toError(msg), i != 0)
@@ -211,13 +214,14 @@ object Sliceable extends Parsers[Parser] {
   // note, regex matching is 'all-or-nothing' - failures are
   // uncommitted
   def regex(r: Regex): Parser[String] = {
-    val msg = "regex " + r
+    val msg = s"regex $r"
     s =>
       r.findPrefixOf(s.input) match {
         case None => Failure(s.loc.toError(msg), isCommitted = false)
         case Some(m) =>
-          if (s.isSliced) Slice(m.length)
-          else            Success(m, m.length)
+          if s.isSliced
+          then Slice(m.length)
+          else Success(m, m.length)
       }
   }
 
@@ -252,8 +256,9 @@ object Sliceable extends Parsers[Parser] {
           p2(s2) match {
             case Success(b, m) => Success(f(s.slice(n).asInstanceOf[A], b), n+m)
             case Slice(m) =>
-              if (s.isSliced) Slice(n+m).asInstanceOf[Result[C]]
-              else            Success(f(s.slice(n).asInstanceOf[A], s2.slice(m).asInstanceOf[B]), n+m)
+              if s.isSliced
+              then Slice(n+m).asInstanceOf[Result[C]]
+              else Success(f(s.slice(n).asInstanceOf[A], s2.slice(m).asInstanceOf[B]), n+m)
             case f @ Failure(_, _) => f
           }
         case f @ Failure(_, _) => f
@@ -268,7 +273,7 @@ object Sliceable extends Parsers[Parser] {
   override def many[A](p: Parser[A]): Parser[List[A]] =
     s => {
       var nConsumed: Int = 0
-      if (s.isSliced) {
+      if s.isSliced then {
         @annotation.tailrec
         def go(p: Parser[String], offset: Int): Result[String] =
           p(s.advanceBy(offset)) match {

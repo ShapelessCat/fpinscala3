@@ -1,5 +1,7 @@
 package fpinscala.iomonad.io
 
+import fpinscala.util.fahrenheitToCelsius
+
 import scala.io.StdIn.readLine
 import scala.language.implicitConversions
 
@@ -17,11 +19,12 @@ object IO0 {
     def empty: IO = () => ()
   }
 
-  // The API of this `IO` type isn't very useful. Not many operations (it is only a monoid), and
-  // not many laws to help with reasoning. It is completely _opaque_. Also cannot represent _input_
-  // effects, like reading from console, for instance:
-  def fahrenheitToCelsius(f: Double): Double =
-    (f - 32) * 5.0/9.0
+  // The API of this `IO` type isn't very useful.
+  // Not many operations (it is only a monoid), and not many laws to help with reasoning. It is
+  // completely _opaque_. Also cannot represent _input_ effects, like reading from console,
+  // for instance:
+  //  def fahrenheitToCelsius(f: Double): Double =
+  //    (f - 32) * 5.0/9.0
 
   // Ordinary code with side effects
   def converter(): Unit = {

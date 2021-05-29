@@ -21,11 +21,11 @@ import scala.language.implicitConversions
       (0 to N)
         .map(i => m.map(unit)(_ => i))
         .foldLeft(m.unit(0)) { (f1, f2) =>
-          for {
+          for
             acc <- f1
             i   <- f2
-          } yield {
-            // if (i == N) println("result: " + (acc+i))
+          yield {
+            // if (i == N) println(s"result: ${acc + i}")
             (acc + i)
           }
         }

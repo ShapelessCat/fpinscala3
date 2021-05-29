@@ -42,12 +42,11 @@ object Monoid {
   }
 
   // Notice that we have a choice in how we implement `op`.
-  // We can compose the options in either order. Both of those implementations
-  // satisfy the monoid laws, but they are not equivalent.
-  // This is true in general--that is, every monoid has a _dual_ where the
-  // `op` combines things in the opposite order. Monoids like `booleanOr` and
-  // `intAddition` are equivalent to their duals because their `op` is commutative
-  // as well as associative.
+  // We can compose the options in either order. Both of those implementations satisfy the monoid
+  // laws, but they are not equivalent.
+  //   This is true in general -- that is, every monoid has a _dual_ where the `op` combines things
+  // in the opposite order. Monoids like `booleanOr` and `intAddition` are equivalent to their duals
+  // because their `op` is commutative as well as associative.
   def optionMonoid[A]: Monoid[Option[A]] = new Monoid[Option[A]] {
     def op(x: Option[A], y: Option[A]): Option[A] = x orElse y
     val zero = None
@@ -75,15 +74,16 @@ object Monoid {
 
   def monoidLaws[A](m: Monoid[A], gen: Gen[A]): Prop =
     // Associativity
-    forAll(for {
-      x <- gen
-      y <- gen
-      z <- gen
-    } yield (x, y, z)) { (a, b, c) =>
+    forAll(
+      for
+        x <- gen
+        y <- gen
+        z <- gen
+      yield (x, y, z)
+    ) { (a, b, c) =>
       m.op(a, m.op(b, c)) == m.op(m.op(a, b), c)
     } &&
-      // Identity
-      forAll(gen) { (a: A) =>
+      forAll(gen) { (a: A) =>  // Identity
         m.op(a, m.zero) == a && m.op(m.zero, a) == a
       }
 
@@ -107,18 +107,17 @@ object Monoid {
     foldMap(xs, dual(endoMonoid[B]))(a => b => f(b, a))(z)
 
   def foldMapV[A, B](xs: IndexedSeq[A], m: Monoid[B])(f: A => B): B =
-    if (xs.isEmpty)
+    if xs.isEmpty then
       m.zero
-    else if (xs.length == 1)
+    else if xs.length == 1 then
       f(xs(0))
     else {
       val (l, r) = xs.splitAt(xs.length / 2)
       m.op(foldMapV(l, m)(f), foldMapV(r, m)(f))
     }
 
-  // This implementation detects only ascending order,
-  // but you can write a monoid that detects both ascending and descending
-  // order if you like.
+  // This implementation detects only ascending order, but you can write a monoid that detects both
+  // ascending and descending order if you like.
   def ordered(ints: IndexedSeq[Int]): Boolean = {
     // Our monoid tracks the minimum and maximum element seen so far
     // as well as whether the elements are so far ordered.
@@ -127,8 +126,8 @@ object Monoid {
         (o1, o2) match {
           // The ranges should not overlap if the sequence is ordered.
           case (Some(x1, y1, p), Some(x2, y2, q)) => Some(x1 min x2, y1 max y2, p && q && y1 <= x2)
-          case (x, None)                              => x
-          case (None, x)                              => x
+          case (x, None)                          => x
+          case (None, x)                          => x
         }
       val zero = None
     }
@@ -145,7 +144,7 @@ object Monoid {
   }
 
   // we perform the mapping and the reducing both in parallel
-  def parFoldMap[A,B](v: IndexedSeq[A], m: Monoid[B])(f: A => B): Par[B] =
+  def parFoldMap[A, B](v: IndexedSeq[A], m: Monoid[B])(f: A => B): Par[B] =
     Par.parMap(v)(f).flatMap { bs =>
       foldMapV(bs, par(m))(b => Par.lazyUnit(b))
     }
@@ -165,16 +164,16 @@ object Monoid {
       case (Stub(c), Stub(d))                   => Stub(c + d)
       case (Stub(c), Part(l, w, r))             => Part(c + l, w, r)
       case (Part(l, w, r), Stub(c))             => Part(l, w, r + c)
-      case (Part(l1, w1, r1), Part(l2, w2, r2)) => Part(l1, w1 + (if ((r1 + l2).isEmpty) 0 else 1) + w2, r2)
+      case (Part(l1, w1, r1), Part(l2, w2, r2)) => Part(l1, w1 + (if (r1 + l2).isEmpty then 0 else 1) + w2, r2)
     }
   }
 
   def count(s: String): Int = {
-    // A single character's count. Whitespace does not count,
-    // and non-whitespace starts a new Stub.
+    // A single character's count. Whitespace does not count, and non-whitespace starts a new Stub.
     def wc(c: Char): WC =
-      if (c.isWhitespace) Part("", 0, "")
-      else                Stub(c.toString)
+      if c.isWhitespace
+      then Part("", 0, "")
+      else Stub(c.toString)
 
     // `unstub(s)` is 0 if `s` is empty, otherwise 1.
     def unstub(s: String) = s.length min 1
@@ -194,7 +193,7 @@ object Monoid {
         (A.zero, B.zero)
     }
 
-  def functionMonoid[A,B](B: Monoid[B]): Monoid[A => B] =
+  def functionMonoid[A, B](B: Monoid[B]): Monoid[A => B] =
     new Monoid[A => B] {
       def op(f: A => B, g: A => B): A => B =
         a => B.op(f(a), g(a))
@@ -205,10 +204,10 @@ object Monoid {
 
   def mapMergeMonoid[K, V](V: Monoid[V]): Monoid[Map[K, V]] =
     new Monoid[Map[K, V]] {
-      def zero = Map.empty[K,V]
+      def zero = Map.empty[K, V]
 
       def op(a: Map[K, V], b: Map[K, V]): Map[K, V] =
-        (a.keySet ++ b.keySet).foldLeft(zero) { (acc,k) =>
+        (a.keySet ++ b.keySet).foldLeft(zero) { (acc, k) =>
           acc.updated(k, V.op(a.getOrElse(k, V.zero),
                               b.getOrElse(k, V.zero)))
         }
@@ -216,7 +215,9 @@ object Monoid {
 
 
   def bag[A](xs: IndexedSeq[A]): Map[A, Int] =
-    foldMapV(xs, mapMergeMonoid[A, Int](intAddition))((a: A) => Map(a -> 1))
+    foldMapV(xs, mapMergeMonoid[A, Int](intAddition)) { (a: A) =>
+      Map(a -> 1)
+    }
 
 }
 
@@ -227,10 +228,14 @@ trait Foldable[F[_]] {
     foldMap(xs)(f.curried)(endoMonoid[B])(z)
 
   def foldLeft[A, B](xs: F[A])(z: B)(f: (B, A) => B): B =
-    foldMap(xs)(a => (b: B) => f(b, a))(dual(endoMonoid[B]))(z)
+    foldMap(xs) { a =>
+      (b: B) => f(b, a)
+    }(dual(endoMonoid[B]))(z)
 
   def foldMap[A, B](xs: F[A])(f: A => B)(mb: Monoid[B]): B =
-    foldRight(xs)(mb.zero)((a, b) => mb.op(f(a), b))
+    foldRight(xs)(mb.zero) { (a, b) =>
+      mb.op(f(a), b)
+    }
 
   def concatenate[A](xs: F[A])(m: Monoid[A]): A =
     foldLeft(xs)(m.zero)(m.op)

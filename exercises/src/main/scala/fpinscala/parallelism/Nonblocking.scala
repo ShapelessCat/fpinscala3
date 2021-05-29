@@ -66,14 +66,16 @@ object Nonblocking {
     def map2[A, B, C](p: Par[A], p2: Par[B])(f: (A, B) => C): Par[C] =
       es => new Future[C] {
         def apply(cb: C => Unit): Unit = {
-          var ar: Option[A] = None
-          var br: Option[B] = None
-          val combiner = Actor[Either[A,B]](es) {
+          var ar = Option.empty[A]
+          var br = Option.empty[B]
+          val combiner = Actor[Either[A, B]](es) {
             case Left(a) =>
-              if (br.isDefined) eval(es)(cb(f(a, br.get)))
+              if br.isDefined
+              then eval(es)(cb(f(a, br.get)))
               else ar = Some(a)
             case Right(b) =>
-              if (ar.isDefined) eval(es)(cb(f(ar.get, b)))
+              if ar.isDefined
+              then eval(es)(cb(f(ar.get, b)))
               else br = Some(b)
           }
           p(es)(a => combiner ! Left(a))
@@ -101,9 +103,9 @@ object Nonblocking {
       }
 
     def sequenceBalanced[A](as: IndexedSeq[Par[A]]): Par[IndexedSeq[A]] = fork {
-      if (as.isEmpty)
+      if as.isEmpty then
         unit(Vector.empty)
-      else if (as.length == 1)
+      else if as.length == 1 then
         map(as.head)(a => Vector(a))
       else {
         val (l, r) = as.splitAt(as.length/2)
@@ -116,26 +118,24 @@ object Nonblocking {
 
     // exercise answers
 
-    /*
-     * We can implement `choice` as a new primitive.
+    /** We can implement `choice` as a new primitive.
      *
-     * `p(es)(result => ...)` for some `ExecutorService`, `es`, and
-     * some `Par`, `p`, is the idiom for running `p`, and registering
-     * a callback to be invoked when its result is available. The
-     * result will be bound to `result` in the function passed to
-     * `p(es)`.
+     *  `p(es)(result => ...)` for some `ExecutorService`, `es`, and
+     *  some `Par`, `p`, is the idiom for running `p`, and registering
+     *  a callback to be invoked when its result is available. The
+     *  result will be bound to `result` in the function passed to
+     *  `p(es)`.
      *
-     * If you find this code difficult to follow, you may want to
-     * write down the type of each subexpression and follow the types
-     * through the implementation. What is the type of `p(es)`? What
-     * about `t(es)`? What about `t(es)(cb)`?
+     *  If you find this code difficult to follow, you may want to
+     *  write down the type of each subexpression and follow the types
+     *  through the implementation. What is the type of `p(es)`? What
+     *  about `t(es)`? What about `t(es)(cb)`?
      */
     def choice[A](p: Par[Boolean])(t: Par[A], f: Par[A]): Par[A] =
       es => new Future[A] {
         def apply(cb: A => Unit): Unit =
           p(es) { b =>
-            if (b) eval(es) { t(es)(cb) }
-            else eval(es) { f(es)(cb) }
+            eval(es) { (if b then t else f)(es)(cb) }
           }
       }
 

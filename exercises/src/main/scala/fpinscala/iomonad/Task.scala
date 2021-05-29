@@ -21,11 +21,12 @@ case class Task[A](get: IO[Either[Throwable, A]]) {
     flatMap(f andThen (Task.now))
 
   /** 'Catches' exceptions in the given task and returns them as values. */
-  def attempt: Task[Either[Throwable,A]] =
-    Task(get map {
+  def attempt: Task[Either[Throwable,A]] = Task {
+    get map {
       case Left(e)  => Right(Left(e))
       case Right(a) => Right(Right(a))
-    })
+    }
+  }
 
   def handle[B >: A](f: PartialFunction[Throwable, B]): Task[B] =
     attempt flatMap {

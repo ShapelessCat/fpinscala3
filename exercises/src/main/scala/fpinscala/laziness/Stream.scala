@@ -18,12 +18,14 @@ enum Stream[+A] {
   def exists(p: A => Boolean): Boolean =
     // Here `b` is the unevaluated recursive step that folds the tail of the stream. If `p(a)`
     // returns `true`, `b` will never be evaluated and the computation terminates early.
-    foldRight(false)((a, b) => p(a) || b)
+    foldRight(false) { (a, b) =>
+      p(a) || b
+    }
 
   @annotation.tailrec
   final def find(f: A => Boolean): Option[A] = this match {
     case Empty      => None
-    case Cons(h, t) => if (f(h())) Some(h()) else t().find(f)
+    case Cons(h, t) => if f(h()) then Some(h()) else t().find(f)
   }
   def take(n: Int): Stream[A] = ???
 
@@ -35,8 +37,8 @@ enum Stream[+A] {
 
   def headOption: Option[A] = ???
 
-  // 5.7 map, filter, append, flatmap using foldRight. Part of the exercise is
-  // writing your own function signatures.
+  // 5.7 map, filter, append, flatmap using foldRight.
+  // Part of the exercise is writing your own function signatures.
 
   def startsWith[B](s: Stream[B]): Boolean = ???
 }
@@ -51,8 +53,9 @@ object Stream {
   def empty[A]: Stream[A] = Empty
 
   def apply[A](as: A*): Stream[A] =
-    if (as.isEmpty) empty 
-    else            cons(as.head, apply(as.tail*))
+    if as.isEmpty
+    then empty
+    else cons(as.head, apply(as.tail*))
 
   val ones: Stream[Int] = Stream.cons(1, ones)
 
