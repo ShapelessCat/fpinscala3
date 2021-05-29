@@ -81,7 +81,7 @@ to get a Scala REPL with access to your exercises, and
 To get a menu of possible main methods to execute.
 
 To create project files for the eclipse IDE you can install the
-[sbteclipse](https://github.com/typesafehub/sbteclipse)
+[sbteclipse](https://github.com/sbt/sbteclipse)
 [sbt](http://scala-sbt.org) plugin. This makes a new command available
 in [sbt](http://scala-sbt.org):
 
