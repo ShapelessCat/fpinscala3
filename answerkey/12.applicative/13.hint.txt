@@ -1,0 +1,2 @@
+Follow the types. There is generally only one sensible implementation that
+typechecks.

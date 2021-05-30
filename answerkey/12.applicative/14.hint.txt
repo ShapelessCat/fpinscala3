@@ -1,0 +1,2 @@
+What happens if you call `traverse` with `Applicative[Option]`? Is there an even
+simpler `Applicative` you could use?

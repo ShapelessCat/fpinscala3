@@ -1,0 +1,2 @@
+Implement `map2` using pattern matching. If both sides are a failure, try to
+keep the order of failures consistent.

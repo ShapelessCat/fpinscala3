@@ -1,0 +1,1 @@
+Let `Option.empty[A]` be the first argument to `foldRight`. Follow the types from there.

@@ -2,7 +2,6 @@ package fpinscala.parallelism
 
 import java.util.concurrent.atomic.{AtomicInteger, AtomicReference}
 import java.util.concurrent.{Callable, ExecutorService}
-import annotation.tailrec
 
 /*
  * Implementation is taken from `scalaz` library, with only minor changes. See:
@@ -77,7 +76,7 @@ final class Actor[A](strategy: Strategy)(handler: A => Unit, onError: Throwable 
     }
   }
 
-  @tailrec
+  @annotation.tailrec
   private def batchHandle(t: Node[A], i: Int): Node[A] = {
     val n = t.get
     if n ne null then {

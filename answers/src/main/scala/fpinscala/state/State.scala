@@ -165,8 +165,6 @@ object RNG {
 
 import State.*
 
-import scala.annotation.tailrec
-
 case class State[S, +A](run: S => (A, S)) {
   infix def map[B](f: A => B): State[S, B] =
     flatMap(f andThen unit)
@@ -199,7 +197,7 @@ object State {
   // up a list in reverse order, then reverse it at the end.
   // (We could also use a collection.mutable.ListBuffer internally.)
   def sequence[S, A](sas: List[State[S, A]]): State[S, List[A]] = {
-    @tailrec
+    @annotation.tailrec
     def go(s: S, actions: List[State[S, A]], acc: List[A]): (List[A], S) =
       actions match {
         case Nil    => (acc.reverse, s)
