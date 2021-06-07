@@ -136,7 +136,7 @@ enum Stream[+A] {
   def takeViaUnfold(n: Int): Stream[A] =
     unfold((this, n)) {
       case (Cons(h, t), 1)          => Some(h(), (empty, 0))
-      case (Cons(h, t), n) if n > 1 => Some(h(), (t(), n-1))
+      case (Cons(h, t), m) if n > 1 => Some(h(), (t(), m - 1))
       case _                        => None
     }
 
@@ -250,7 +250,7 @@ object Stream {
   def unfold[A, S](z: S)(f: S => Option[(A, S)]): Stream[A] =
     f(z) match {
       case Some(h, s) => cons(h, unfold(s)(f))
-      case None         => empty
+      case None       => empty
     }
 
   // The below two implementations use `fold` and `map` functions in the Option class to implement
