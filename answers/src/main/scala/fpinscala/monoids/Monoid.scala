@@ -1,7 +1,7 @@
 package fpinscala.monoids
 
 import fpinscala.parallelism.Nonblocking.*
-import fpinscala.parallelism.Nonblocking.Par.given  // infix syntax for `Par.map`, `Par.flatMap`, etc
+import fpinscala.parallelism.Nonblocking.Par.*  // infix extension methods for `Par.map`, `Par.flatMap`, etc
 import scala.language.implicitConversions
 
 trait Monoid[A] {
