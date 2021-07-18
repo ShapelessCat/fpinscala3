@@ -3,11 +3,39 @@ package fpinscala.parallelism
 import java.util.concurrent.*
 import scala.language.implicitConversions
 
-object Par {
-  type Par[A] = ExecutorService => Future[A]
+type Par[A] = ExecutorService => Future[A]
+extension [A](pa: Par[A]) {
 
-  def run[A](s: ExecutorService)(a: Par[A]): Future[A] =
-    a(s)
+  def run(s: ExecutorService): Future[A] =
+    pa(s)
+
+  def map[B](f: A => B): Par[B] =
+    Par.map2(pa, Par.unit(())) { (a, _) =>
+      f(a)
+    }
+
+  def choiceMap[B](choices: Map[A, Par[B]]): Par[B] =
+    es => {
+      val k = pa.run(es).get
+      choices(k).run(es)
+    }
+
+  def chooser[B](choices: A => Par[B]): Par[B] =
+    es => {
+      val k = pa.run(es).get
+      choices(k).run(es)
+    }
+
+  // `chooser` is usually called `flatMap` or `bind`.
+  def flatMap[B](choices: A => Par[B]): Par[B] =
+    es => {
+      val k = pa.run(es).get
+      choices(k).run(es)
+    }
+
+}
+
+object Par {
 
   // `unit` is represented as a function that returns a `UnitFuture`, which is a simple
   // implementation of `Future` that just wraps a constant value. It doesn't use the
@@ -16,7 +44,7 @@ object Par {
   def unit[A](a: A): Par[A] =
     (es: ExecutorService) => UnitFuture(a)
 
-  private case class UnitFuture[A](get: A) extends Future[A] {
+  private final case class UnitFuture[A](get: A) extends Future[A] {
     def isDone = true
     def get(timeout: Long, units: TimeUnit) = get
     def isCancelled = false
@@ -56,11 +84,6 @@ object Par {
 
   def asyncF[A, B](f: A => B): A => Par[B] =
     a => lazyUnit(f(a))
-
-  def map[A, B](pa: Par[A])(f: A => B): Par[B] =
-    map2(pa, unit(())) { (a, _) =>
-      f(a)
-    }
 
   def sortPar(parList: Par[List[Int]]): Par[List[Int]] =
     map(parList)(_.sorted)
@@ -114,14 +137,14 @@ object Par {
 
   def choice[A](cond: Par[Boolean])(t: Par[A], f: Par[A]): Par[A] =
     es =>
-      if run(es)(cond).get
+      if cond.run(es).get
       then t(es)  // Notice we are blocking on the result of `cond`.
       else f(es)
 
   def choiceN[A](n: Par[Int])(choices: List[Par[A]]): Par[A] =
     es => {
-      val ind = run(es)(n).get  // Full source files
-      run(es)(choices(ind))
+      val ind = n.run(es).get  // Full source files
+      choices(ind).run(es)
     }
 
   def choiceViaChoiceN[A](a: Par[Boolean])(ifTrue: Par[A], ifFalse: Par[A]): Par[A] =
@@ -130,25 +153,6 @@ object Par {
         if b then 0 else 1
       }
     }(List(ifTrue, ifFalse))
-
-  def choiceMap[K, V](key: Par[K])(choices: Map[K, Par[V]]): Par[V] =
-    es => {
-      val k = run(es)(key).get
-      run(es)(choices(k))
-    }
-
-  def chooser[A, B](p: Par[A])(choices: A => Par[B]): Par[B] =
-    es => {
-      val k = run(es)(p).get
-      run(es)(choices(k))
-    }
-
-  // `chooser` is usually called `flatMap` or `bind`.
-  def flatMap[A, B](p: Par[A])(choices: A => Par[B]): Par[B] =
-    es => {
-      val k = run(es)(p).get
-      run(es)(choices(k))
-    }
 
   def choiceViaFlatMap[A](p: Par[Boolean])(f: Par[A], t: Par[A]): Par[A] =
     flatMap(p) { b =>
@@ -160,19 +164,13 @@ object Par {
 
   // see nonblocking implementation in `Nonblocking.scala`
   def join[A](a: Par[Par[A]]): Par[A] =
-    es => run(es)(run(es)(a).get())
+    es => a.run(es).get().run(es)
 
   def joinViaFlatMap[A](a: Par[Par[A]]): Par[A] =
     flatMap(a)(identity)
 
   def flatMapViaJoin[A, B](p: Par[A])(f: A => Par[B]): Par[B] =
     join(map(p)(f))
-
-  // TODO: Remove this and use extension methods
-  // Gives us infix syntax for `Par`.
-  given toParOps[A]: Conversion[Par[A], ParOps[A]] = new ParOps(_)
-
-  class ParOps[A](p: Par[A])
 }
 
 object Examples {

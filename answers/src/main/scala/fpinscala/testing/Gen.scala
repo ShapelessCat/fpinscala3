@@ -1,8 +1,8 @@
 package fpinscala.testing
 
 import fpinscala.laziness.LazyList
-import fpinscala.parallelism.Par.Par
 import fpinscala.parallelism.*
+import fpinscala.parallelism.Par.Par
 import fpinscala.state.*
 import fpinscala.testing.Gen.*
 import fpinscala.testing.Prop.*
@@ -116,14 +116,14 @@ object Prop {
 
   val ES: ExecutorService = Executors.newCachedThreadPool
   val p1 = Prop.forAll(Gen.unit(Par.unit(1)))(i =>
-    Par.map(i)(_ + 1)(ES).get == Par.unit(2)(ES).get)
+    i.map(_ + 1)(ES).get == Par.unit(2)(ES).get)
 
   def check(p: => Boolean): Prop = Prop { (_, _, _) =>
     if p then Passed else Falsified("()", 0)
   }
 
   val p2 = check {
-    val p = Par.map(Par.unit(1))(_ + 1)
+    val p = Par.unit(1).map(_ + 1)
     val p2 = Par.unit(2)
     p(ES).get == p2(ES).get
   }
@@ -133,7 +133,7 @@ object Prop {
 
   val p3 = check {
     equal (
-      Par.map(Par.unit(1))(_ + 1),
+      Par.unit(1).map(_ + 1),
       Par.unit(2)
     ) (ES).get
   }
@@ -156,7 +156,7 @@ object Prop {
     forAll(S ** g) { case s ** a => f(a)(s).get }
 
   val pint = Gen.choose(0,10).map(Par.unit)
-  val p4 = forAllPar(pint)(n => equal(Par.map(n)(y => y), n))
+  val p4 = forAllPar(pint)(n => equal(n.map(y => y), n))
 
   val forkProp = Prop.forAllPar(pint2)(i => equal(Par.fork(i), i)) tag "fork"
 }

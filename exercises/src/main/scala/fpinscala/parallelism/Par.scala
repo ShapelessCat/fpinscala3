@@ -3,10 +3,20 @@ package fpinscala.parallelism
 import java.util.concurrent.*
 import language.implicitConversions
 
+type Par[A] = ExecutorService => Future[A]
+extension [A](pa: Par[A]) {
+
+  def run(s: ExecutorService): Future[A] =
+    pa(s)
+
+  def map[B](f: A => B): Par[B] =
+    Par.map2(pa, Par.unit(())) { (a, _) =>
+      f(a)
+    }
+
+
+}
 object Par {
-  type Par[A] = ExecutorService => Future[A]
-  
-  def run[A](s: ExecutorService)(a: Par[A]): Future[A] = a(s)
 
   // `unit` is represented as a function that returns a `UnitFuture`, which is a simple
   // implementation of `Future` that just wraps a constant value. It doesn't use the
@@ -51,11 +61,6 @@ object Par {
       }
     )
 
-  def map[A, B](pa: Par[A])(f: A => B): Par[B] =
-    map2(pa, unit(())) { (a, _) =>
-      f(a)
-    }
-
   def sortPar(parList: Par[List[Int]]) = map(parList)(_.sorted)
 
   def equal[A](e: ExecutorService)(p: Par[A], p2: Par[A]): Boolean = 
@@ -65,21 +70,14 @@ object Par {
     es => fa(es)
 
   def choice[A](cond: Par[Boolean])(t: Par[A], f: Par[A]): Par[A] =
-    es => 
-      if run(es)(cond).get
+    es =>
+      if cond.run(es).get
       then t(es)  // Notice we are blocking on the result of `cond`.
       else f(es)
 
-  /* Gives us infix syntax for `Par`. */
-  given toParOps[A]: Conversion[Par[A], ParOps[A]] = new ParOps(_)
-
-  class ParOps[A](p: Par[A]) {
-  }
 }
 
 object Examples {
-  import Par.*
-
   // `IndexedSeq` is a superclass of random-access sequences like `Vector` in the standard library.
   // Unlike lists, these sequences provide an efficient `splitAt` method for dividing them into two
   // parts at a particular index.

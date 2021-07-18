@@ -104,7 +104,7 @@ object Monad {
       Par.unit(a)
 
     override def flatMap[A, B](ma: Par[A])(f: A => Par[B]) =
-      Par.flatMap(ma)(f)
+      ma.flatMap(f)
   }
 
   def parserMonad[P[+_]](p: Parsers[P]) = new Monad[P] {
