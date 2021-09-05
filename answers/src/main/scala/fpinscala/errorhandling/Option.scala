@@ -5,7 +5,7 @@ import scala.{Either as _, Left as _, Right as _, Option as _, None as _, Some a
 
 enum Option[+A] {
   case Some(get: A)
-  case None extends Option[Nothing]
+  case None
 
   infix def map[B](f: A => B): Option[B] = this match {
     case None    => None

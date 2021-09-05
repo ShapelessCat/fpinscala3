@@ -1,6 +1,6 @@
 package fpinscala.testing
 
-import fpinscala.laziness.Stream
+import fpinscala.laziness.LazyList
 import fpinscala.parallelism.Par.Par
 import fpinscala.parallelism.*
 import fpinscala.state.*
@@ -57,15 +57,15 @@ object Prop {
   import Result.*
 
   /** Produce an infinite random stream from a `Gen` and a starting `RNG`. */
-  def randomStream[A](g: Gen[A])(rng: RNG): Stream[A] =
-    Stream.unfold(rng) { rng =>
+  def randomStream[A](g: Gen[A])(rng: RNG): LazyList[A] =
+    LazyList.unfold(rng) { rng =>
       Some(g.sample.run(rng))
     }
 
   def forAll[A](as: Gen[A])(f: A => Boolean): Prop = Prop {
     (n, rng) =>
       randomStream(as)(rng)
-        .zip(Stream.from(0))
+        .zip(LazyList.from(0))
         .take(n)
         .map {
           case (a, i) => try {
@@ -92,7 +92,7 @@ object Prop {
   def forAll[A](g: Int => Gen[A])(f: A => Boolean): Prop = Prop {
     (max, n, rng) =>
       val casesPerSize = (n - 1) / max + 1
-      val props: Stream[Prop] = Stream.from(0).take((n min max) + 1).map { i =>
+      val props: LazyList[Prop] = LazyList.from(0).take((n min max) + 1).map { i =>
         forAll(g(i))(f)
       }
       val prop: Prop =

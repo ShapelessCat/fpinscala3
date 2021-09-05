@@ -153,7 +153,7 @@ object Monad {
         State(s => (a, s))
 
       override def flatMap[A, B](st: State[S, A])(f: A => State[S, B]): State[S, B] =
-        st flatMap f
+        st.flatMap(f)
     }
   }
 
@@ -165,7 +165,7 @@ object Monad {
       State(s => (a, s))
 
     override def flatMap[A, B](st: State[S, A])(f: A => State[S, B]): State[S, B] =
-      st flatMap f
+      st.flatMap(f)
   }
 
   val idMonad = new Monad[Id] {

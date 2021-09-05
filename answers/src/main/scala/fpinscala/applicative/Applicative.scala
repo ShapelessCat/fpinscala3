@@ -1,10 +1,10 @@
 package fpinscala
 package applicative
 
-import fpinscala.monads.Functor
-import fpinscala.monoids.*
-import fpinscala.state.State.*
-import fpinscala.state.*
+import monads.Functor
+import monoids.*
+import state.State.*
+import state.*
 
 import scala.language.implicitConversions
 
@@ -71,7 +71,7 @@ trait Applicative[F[_]] extends Functor[F] {
       def unit[A](a: => A) = self.unit(G.unit(a))
 
       override def map2[A, B, C](fga: F[G[A]], fgb: F[G[B]])(f: (A, B) => C) =
-        self.map2(fga, fgb)(G.map2(_,_)(f))
+        self.map2(fga, fgb)(G.map2(_, _)(f))
     }
   }
 
@@ -158,7 +158,7 @@ object Monad {
     def unit[A](a: => A): State[S, A] = State(s => (a, s))
 
     override def flatMap[A, B](st: State[S, A])(f: A => State[S, B]): State[S, B] =
-      st flatMap f
+      st.flatMap(f)
   }
 
   // Monad composition

@@ -51,10 +51,10 @@ object List {  // `List` companion object. Contains functions for creating and w
       case Cons(x, xs) => f(x, foldRight(xs, z)(f))
     }
 
-  def sum2(ns: List[Int]): Int =
+  def sumViaFoldRight(ns: List[Int]): Int =
     foldRight(ns, 0)(_ + _)
 
-  def product2(ns: List[Double]): Double =
+  def productViaFoldRight(ns: List[Double]): Double =
     foldRight(ns, 1.0)(_ * _)  // `_ * _` is more concise notation for `(x,y) => x * y`; see sidebar
 
 
@@ -170,13 +170,13 @@ object List {  // `List` companion object. Contains functions for creating and w
     case Cons(h, t) => foldLeft(t, f(z, h))(f)
   }
 
-  def sum3(l: List[Int]): Int =
+  def sumViaFoldLeft(l: List[Int]): Int =
     foldLeft(l, 0)(_ + _)
 
-  def product3(l: List[Double]): Double =
+  def productViaFoldLeft(l: List[Double]): Double =
     foldLeft(l, 1.0)(_ * _)
 
-  def length2[A](l: List[A]): Int =
+  def lengthViaFoldLeft[A](l: List[A]): Int =
     foldLeft(l, 0) { (acc, _) =>
       acc + 1
     }

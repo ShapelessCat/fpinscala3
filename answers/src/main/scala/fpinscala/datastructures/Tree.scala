@@ -3,34 +3,21 @@ package fpinscala.datastructures
 enum Tree[+A] {
   case Leaf(value: A)
   case Branch(left: Tree[A], right: Tree[A])
-}
 
-object Tree {
-  def size[A](t: Tree[A]): Int = t match {
+  def size: Int = this match {
     case Leaf(_)      => 1
-    case Branch(l, r) => 1 + size(l) + size(r)
-  }
-
-  /** We're using the method `max` that exists on all `Int` values rather than an explicit `if`
-   *  expression.
-   *
-   *  Note how similar the implementation is to `size`. We'll abstract out the common pattern in a
-   *  later exercise.
-   */
-  def maximum(t: Tree[Int]): Int = t match {
-    case Leaf(n)      => n
-    case Branch(l, r) => maximum(l) max maximum(r)
+    case Branch(l, r) => 1 + l.size + r.size
   }
 
   /** Again, note how similar the implementation is to `size` and `maximum`. */
-  def depth[A](t: Tree[A]): Int = t match {
+  def depth: Int = this match {
     case Leaf(_)      => 0
-    case Branch(l, r) => 1 + (depth(l) max depth(r))
+    case Branch(l, r) => 1 + (l.depth max r.depth)
   }
 
-  def map[A, B](t: Tree[A])(f: A => B): Tree[B] = t match {
+  def map[B](f: A => B): Tree[B] = this match {
     case Leaf(a)      => Leaf(f(a))
-    case Branch(l, r) => Branch(map(l)(f), map(r)(f))
+    case Branch(l, r) => Branch(l.map(f), r.map(f))
   }
 
   /** Like `foldRight` for lists, `fold` receives a "handler" for each of the data constructors of
@@ -38,19 +25,16 @@ object Tree {
    *  `fold(t)(Leaf(_))(Branch(_, _)) == t`, and we can use this function to implement just about
    *  any recursive function that would otherwise be defined by pattern matching.
    */
-  def fold[A, B](t: Tree[A])(f: A => B)(g: (B, B) => B): B = t match {
+  def fold[B](f: A => B)(g: (B, B) => B): B = this match {
     case Leaf(a)      => f(a)
-    case Branch(l, r) => g(fold(l)(f)(g), fold(r)(f)(g))
+    case Branch(l, r) => g(l.fold(f)(g), r.fold(f)(g))
   }
-  
-  def sizeViaFold[A](t: Tree[A]): Int = 
-    fold(t)(a => 1)(1 + _ + _)
-  
-  def maximumViaFold(t: Tree[Int]): Int = 
-    fold(t)(identity)(_ max _)
-  
-  def depthViaFold[A](t: Tree[A]): Int = 
-    fold(t)(a => 0) { (d1, d2) =>
+
+  def sizeViaFold: Int =
+    fold(a => 1)(1 + _ + _)
+
+  def depthViaFold: Int =
+    fold(a => 0) { (d1, d2) =>
       1 + (d1 max d2)
     }
 
@@ -78,7 +62,30 @@ object Tree {
    *  This error is an unfortunate consequence of Scala using subtyping to encode algebraic data
    *  types. This issue is partially fixed in Scala 3 because of the introduction of `enum`, and
    *  the type inference of `enum` variants, though this issue still exists if you don't use `enum`.
-  */
-  def mapViaFold[A, B](t: Tree[A])(f: A => B): Tree[B] =
-    fold(t)(a => Leaf(f(a)))(Branch(_, _))
+   */
+  def mapViaFold[B](f: A => B): Tree[B] =
+    fold(a => Leaf(f(a)))(Branch(_, _))
+}
+
+object Tree {
+
+  extension (t: Tree[Int]) def firstPositive: Option[Int] = t match {
+    case Leaf(i)      => Option.when(i > 0)(i)
+    case Branch(l, r) => l.firstPositive orElse r.firstPositive
+  }
+
+  /** We're using the method `max` that exists on all `Int` values rather than an explicit `if`
+   *  expression.
+   *
+   *  Note how similar the implementation is to `size`. We'll abstract out the common pattern in a
+   *  later exercise.
+   */
+  extension (t: Tree[Int]) def maximum: Int = t match {
+    case Leaf(n)      => n
+    case Branch(l, r) => l.maximum max r.maximum
+  }
+
+  extension (t: Tree[Int]) def maximumViaFold: Int =
+    t.fold(identity)(_ max _)
+
 }

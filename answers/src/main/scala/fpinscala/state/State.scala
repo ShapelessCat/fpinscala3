@@ -154,57 +154,60 @@ object RNG {
     }
   }
 
-  def _map[A, B](s: Rand[A])(f: A => B): Rand[B] =
+  def mapViaFlatMap[A, B](s: Rand[A])(f: A => B): Rand[B] =
     flatMap(s)(f andThen unit)
 
-  def _map2[A, B, C](ra: Rand[A], rb: Rand[B])(f: (A, B) => C): Rand[C] =
+  def map2ViaFlatMap[A, B, C](ra: Rand[A], rb: Rand[B])(f: (A, B) => C): Rand[C] =
     flatMap(ra) { a =>
       map(rb)(b => f(a, b))
     }
 }
 
-import State.*
-
-case class State[S, +A](run: S => (A, S)) {
-  infix def map[B](f: A => B): State[S, B] =
-    flatMap(f andThen unit)
-
-  infix def map2[B, C](sb: State[S, B])(f: (A, B) => C): State[S, C] =
-    flatMap { a =>
-      sb.map(b => f(a, b))
-    }
-
-  infix def flatMap[B](f: A => State[S, B]): State[S, B] = State(s => {
-    val (a, s1) = run(s)
-    f(a).run(s1)
-  })
-}
+opaque type State[S, +A] = S => (A, S)
 
 object State {
-  type Rand[A] = State[RNG, A]
+  extension [S, A](underlying: State[S, A])
+    def run(s: S): (A, S) = underlying(s)
+
+    def map[B](f: A => B): State[S, B] =
+      flatMap(f andThen unit)
+
+    def map2[B, C](sb: State[S, B])(f: (A, B) => C): State[S, C] =
+      for
+        a <- underlying
+        b <- sb
+      yield f(a, b)
+
+    def flatMap[B](f: A => State[S, B]): State[S, B] =
+      s => {
+        val (a, s1) = underlying(s)
+        f(a)(s1)
+      }
+
+  def apply[S, A](f: S => (A, S)): State[S, A] = f
 
   def unit[S, A](a: A): State[S, A] =
-    State(s => (a, s))
+    s => (a, s)
 
   // The idiomatic solution is expressed via foldRight
-  def sequenceViaFoldRight[S, A](sas: List[State[S, A]]): State[S, List[A]] =
-    sas.foldRight(unit[S, List[A]](Nil)) { (f, acc) =>
+  def sequence[S, A](actions: List[State[S, A]]): State[S, List[A]] =
+    actions.foldRight(unit[S, List[A]](Nil)) { (f, acc) =>
       f.map2(acc)(_ :: _)
     }
 
-  // This implementation uses a loop internally and is the same recursion
-  // pattern as a left fold. It is quite common with left folds to build
-  // up a list in reverse order, then reverse it at the end.
-  // (We could also use a collection.mutable.ListBuffer internally.)
-  def sequence[S, A](sas: List[State[S, A]]): State[S, List[A]] = {
-    @annotation.tailrec
-    def go(s: S, actions: List[State[S, A]], acc: List[A]): (List[A], S) =
-      actions match {
-        case Nil    => (acc.reverse, s)
-        case h :: t => h.run(s) match { case (a, s2) => go(s2, t, a :: acc) }
-      }
-    State((s: S) => go(s, sas, Nil))
-  }
+//  // This implementation uses a loop internally and is the same recursion
+//  // pattern as a left fold. It is quite common with left folds to build
+//  // up a list in reverse order, then reverse it at the end.
+//  // (We could also use a collection.mutable.ListBuffer internally.)
+//  def sequence[S, A](sas: List[State[S, A]]): State[S, List[A]] = {
+//    @annotation.tailrec
+//    def go(s: S, actions: List[State[S, A]], acc: List[A]): (List[A], S) =
+//      actions match {
+//        case Nil    => (acc.reverse, s)
+//        case h :: t => h.run(s) match { case (a, s2) => go(s2, t, a :: acc) }
+//      }
+//    State((s: S) => go(s, sas, Nil))
+//  }
 
   // We can also write the loop using a left fold. This is tail recursive like the
   // previous solution, but it reverses the list _before_ folding it instead of after.
@@ -213,45 +216,50 @@ object State {
   // technically has to also walk the list twice, since it has to unravel the call
   // stack, not being tail recursive. And the call stack will be as tall as the list
   // is long.
-  def sequenceViaFoldLeft[S, A](l: List[State[S, A]]): State[S, List[A]] =
-    l.reverse.foldLeft(unit[S, List[A]](Nil)) { (acc, f) =>
-      f.map2(acc)( _ :: _ )
-    }
+//  def sequenceViaFoldLeft[S, A](l: List[State[S, A]]): State[S, List[A]] =
+//    l.reverse.foldLeft(unit[S, List[A]](Nil)) { (acc, f) =>
+//      f.map2(acc)( _ :: _ )
+//    }
 
-  def modify[S](f: S => S): State[S, Unit] = for
-    s <- get // Gets the current state and assigns it to `s`.
-    _ <- set(f(s)) // Sets the new state to `f` applied to `s`.
-  yield ()
+  def traverse[S, A, B](as: List[A])(f: A => State[S, B]): State[S, List[B]] =
+    as.foldRight(unit[S, List[B]](Nil))((a, acc) => f(a).map2(acc)(_ :: _))
 
-  def get[S]: State[S, S] = State(s => (s, s))
+  def modify[S](f: S => S): State[S, Unit] =
+    for
+      s <- get // Gets the current state and assigns it to `s`.
+      _ <- set(f(s)) // Sets the new state to `f` applied to `s`.
+    yield ()
 
-  def set[S](s: S): State[S, Unit] = State(_ => ((), s))
+  def get[S]: State[S, S] =
+    s => (s, s)
+
+  def set[S](s: S): State[S, Unit] =
+    _ => ((), s)
 }
 
 enum Input {
-  case Coin
-  case Turn
+  case Coin, Turn
 }
 
 case class Machine(locked: Boolean, candies: Int, coins: Int)
 
 object Candy {
-  import Input.*
+  def simulateMachine(inputs: List[Input]): State[Machine, (Int, Int)] =
+    for
+      _ <- State.traverse(inputs)(i => State.modify(update(i)))
+      s <- State.get
+    yield (s.coins, s.candies)
 
-  def update: Input => Machine => Machine =
+  val update =
     (i: Input) =>
       (s: Machine) =>
         (i, s) match {
-          case (_, Machine(_, 0, _))               => s
-          case (Coin, Machine(false, _, _))        => s
-          case (Turn, Machine(true, _, _))         => s
-          case (Coin, Machine(true, candy, coin))  => Machine(locked = false, candy, coin + 1)
-          case (Turn, Machine(false, candy, coin)) => Machine(locked = true, candy - 1, coin)
+          case (_, Machine(_, 0, _))                     => s
+          case (Input.Coin, Machine(false, _, _))        => s
+          case (Input.Turn, Machine(true, _, _))         => s
+          case (Input.Coin, Machine(true, candy, coin))  => Machine(locked = false, candy, coin + 1)
+          case (Input.Turn, Machine(false, candy, coin)) => Machine(locked = true, candy - 1, coin)
         }
 
-  def simulateMachine(inputs: List[Input]): State[Machine, (Int, Int)] = for
-    _ <- sequence(inputs map (modify[Machine] compose update))
-    s <- get
-  yield (s.coins, s.candies)
 }
 

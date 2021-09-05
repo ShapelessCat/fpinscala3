@@ -6,8 +6,8 @@ package fpinscala.testing.exhaustive
  *  The Gen data type in this file incorporates exhaustive checking of finite domains.
  */
 
-import fpinscala.laziness.Stream
-import fpinscala.laziness.Stream.*
+import fpinscala.laziness.LazyList
+import fpinscala.laziness.LazyList.*
 import fpinscala.parallelism.Par.Par
 import fpinscala.parallelism.*
 import fpinscala.state.*
@@ -52,7 +52,7 @@ object Prop {
   type Result = Either[FailedCase, (Status, TestCases)]
   def forAll[A](a: Gen[A])(f: A => Boolean): Prop = Prop {
     (n, rng) => {
-      def go(i: Int, j: Int, s: Stream[Option[A]], onEnd: Int => Result): Result =
+      def go(i: Int, j: Int, s: LazyList[Option[A]], onEnd: Int => Result): Result =
         if i == j then
           Right((Unfalsified, i))
         else s match {
@@ -100,7 +100,7 @@ object Prop {
   def forAll[A](g: Int => Gen[A])(f: A => Boolean): Prop = Prop {
     (max, n, rng) =>
       val casesPerSize = n / max + 1
-      val props: List[Prop] = Stream.from(0).take(max+1).map(i => forAll(g(i))(f)).toList
+      val props: List[Prop] = LazyList.from(0).take(max+1).map(i => forAll(g(i))(f)).toList
       val p: Prop = props.map { p =>
         Prop((max, n, rng) => p.run(max, casesPerSize, rng))
       }.reduceLeft(_ && _)
@@ -179,7 +179,7 @@ enum Status {
  *  Infinite domains will simply generate infinite streams of None.
  *  A finite domain is exhausted when the stream reaches empty.
 */
-case class Gen[+A](sample: State[RNG, A], exhaustive: Stream[Option[A]]) {
+case class Gen[+A](sample: State[RNG, A], exhaustive: LazyList[Option[A]]) {
   infix def map[B](f: A => B): Gen[B] =
     Gen(sample.map(f), exhaustive.map(_.map(f)))
 
@@ -214,35 +214,35 @@ case class Gen[+A](sample: State[RNG, A], exhaustive: Stream[Option[A]]) {
 }
 
 object Gen {
-  type Domain[+A] = Stream[Option[A]]
+  type Domain[+A] = LazyList[Option[A]]
 
-  def bounded[A](a: Stream[A]): Domain[A] = a map (Some(_))
-  def unbounded: Domain[Nothing] = Stream(None)
+  def bounded[A](a: LazyList[A]): Domain[A] = a.map(Some(_))
+  def unbounded: Domain[Nothing] = LazyList(None)
 
   def unit[A](a: => A): Gen[A] =
-    Gen(State.unit(a), bounded(Stream(a)))
+    Gen(State.unit(a), bounded(LazyList(a)))
 
   def boolean: Gen[Boolean] =
-    Gen(State(RNG.boolean), bounded(Stream(true, false)))
+    Gen(State(RNG.boolean), bounded(LazyList(true, false)))
 
   def choose(start: Int, stopExclusive: Int): Gen[Int] =
     Gen(State(RNG.nonNegativeInt).map(n => start + n % (stopExclusive-start)),
-        bounded(Stream.from(start).take(stopExclusive-start)))
+        bounded(LazyList.from(start).take(stopExclusive-start)))
 
   /* This implementation is rather tricky, but almost impossible to get wrong
    * if you follow the types. It relies on several helper functions (see below).
    */
   def listOfN[A](n: Int, g: Gen[A]): Gen[List[A]] =
     Gen(State.sequence(List.fill(n)(g.sample)),
-        cartesian(Stream.constant(g.exhaustive).take(n)).map(l => sequenceOption(l.toList)))
+        cartesian(LazyList.continually(g.exhaustive).take(n)).map(l => sequenceOption(l.toList)))
 
   /* `cartesian` generates all possible combinations of a `Stream[Stream[A]]`. For instance:
    *
    *    cartesian(Stream(Stream(1,2), Stream(3), Stream(4,5))) ==
    *    Stream(Stream(1,3,4), Stream(1,3,5), Stream(2,3,4), Stream(2,3,5))
   */
-  def cartesian[A](s: Stream[Stream[A]]): Stream[Stream[A]] =
-    s.foldRight(Stream(Stream[A]()))((hs, ts) => map2Stream(hs,ts)(Stream.cons(_, _)))
+  def cartesian[A](s: LazyList[LazyList[A]]): LazyList[LazyList[A]] =
+    s.foldRight(LazyList(LazyList[A]()))((hs, ts) => map2Stream(hs,ts)(LazyList.cons(_, _)))
 
   /* `map2Option` and `map2Stream`. Notice the duplication! */
   def map2Option[A, B, C](oa: Option[A], ob: Option[B])(f: (A, B) => C): Option[C] =
@@ -255,7 +255,7 @@ object Gen {
    * We are generating all (A, B) combinations and using each to produce a `C`.
    * This implementation desugars to sa.flatMap(a => sb.map(b => f(a,b))).
    */
-  def map2Stream[A, B, C](sa: Stream[A], sb: => Stream[B])(f: (A, => B) => C): Stream[C] =
+  def map2Stream[A, B, C](sa: LazyList[A], sb: => LazyList[B])(f: (A, => B) => C): LazyList[C] =
     for
       a <- sa
       b <- sb
@@ -316,8 +316,8 @@ object Gen {
       interleave(g1.exhaustive, g2.exhaustive)
     )
 
-  def interleave[A](s1: Stream[A], s2: Stream[A]): Stream[A] =
-    s1.zipAll(s2).flatMap { case (a, a2) => Stream((a.toList ++ a2.toList)*) }
+  def interleave[A](s1: LazyList[A], s2: LazyList[A]): LazyList[A] =
+    s1.zipAll(s2).flatMap { case (a, a2) => LazyList((a.toList ++ a2.toList)*) }
 
   /* The random case is simple - we generate a double and use this to choose between
    * the two random samplers. The exhaustive case is trickier if we want to try
@@ -330,31 +330,31 @@ object Gen {
     /* Some random booleans to use for selecting between g1 and g2 in the exhaustive case.
      * Making up a seed locally is fine here, since we just want a deterministic schedule
      * with the right distribution. */
-    def bools: Stream[Boolean] = randomStream(uniform.map(_ < g1Threshold))(RNG.Simple(302837L))
+    def bools: LazyList[Boolean] = randomStream(uniform.map(_ < g1Threshold))(RNG.Simple(302837L))
 
     Gen(State(RNG.double).flatMap(d => if d < g1Threshold then g1._1.sample else g2._1.sample),
         interleave(bools, g1._1.exhaustive, g2._1.exhaustive))
   }
 
   /** Produce an infinite random stream from a `Gen` and a starting `RNG`. */
-  def randomStream[A](g: Gen[A])(rng: RNG): Stream[A] =
-    Stream.unfold(rng)(rng => Some(g.sample.run(rng)))
+  def randomStream[A](g: Gen[A])(rng: RNG): LazyList[A] =
+    LazyList.unfold(rng)(rng => Some(g.sample.run(rng)))
 
   /** Interleave the two streams, using `b` to control which stream to pull from at each step.
    *  A value of `true` attempts to pull from `s1`; `false` attempts to pull from `s1`.
    *  When either stream is exhausted, insert all remaining elements from the other stream.
    */
-  def interleave[A](b: Stream[Boolean], s1: Stream[A], s2: Stream[A]): Stream[A] =
+  def interleave[A](b: LazyList[Boolean], s1: LazyList[A], s2: LazyList[A]): LazyList[A] =
     b.headOption map { hd =>
       if hd then s1 match {
-        case Cons(h, t) => Stream.cons(h(), interleave(b drop 1, t(), s2))
+        case Cons(h, t) => LazyList.cons(h(), interleave(b drop 1, t(), s2))
         case _          => s2
       }
       else s2 match {
-        case Cons(h, t) => Stream.cons(h(), interleave(b drop 1, s1, t()))
+        case Cons(h, t) => LazyList.cons(h(), interleave(b drop 1, s1, t()))
         case _          => s1
       }
-    } getOrElse Stream.empty
+    } getOrElse LazyList.empty
 
   def listOf[A](g: Gen[A]): SGen[List[A]] =
     Sized(n => g.listOfN(n))
