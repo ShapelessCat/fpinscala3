@@ -9,7 +9,6 @@ package fpinscala.testing.exhaustive
 import fpinscala.laziness.LazyList
 import fpinscala.laziness.LazyList.*
 import fpinscala.parallelism.*
-import fpinscala.parallelism.Par.Par
 import fpinscala.state.*
 import fpinscala.testing.exhaustive.Gen.*
 import fpinscala.testing.exhaustive.Prop.*

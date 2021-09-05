@@ -2,7 +2,6 @@ package fpinscala.testing
 
 import fpinscala.laziness.LazyList
 import fpinscala.parallelism.*
-import fpinscala.parallelism.Par.Par
 import fpinscala.state.*
 import fpinscala.testing.Gen.*
 import fpinscala.testing.Prop.*
