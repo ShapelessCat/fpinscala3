@@ -1,37 +1,38 @@
-val commonSettings = Seq(
-  scalaVersion := "3.0.0",
+ThisBuild / scalaVersion := "3.0.1"
 
-  javacOptions := Seq("-source", "11", "-Xlint:unchecked", "-Xlint:deprecation"),
+ThisBuild / scalacOptions ++= Seq(
+  "-encoding", "utf-8",  // Specify character encoding used by source files.
+  "-deprecation",
+  "-feature",
+  "-explain",            // Explain errors in more detail.
+  "-explain-types",      // Explain type errors in more detail.
+  "-unchecked",          // Enable additional warnings where generated code depends on assumptions.
+  "-Xfatal-warnings",    // Fail the compilation if there are any warnings.
+  "-new-syntax",         // Require `then` and `do` in control expressions.
+  "-rewrite",
+  "-Ykind-projector:underscores",
+//  "-Ykind-projector",
+  "-source:future-migration",
+)
 
-  scalacOptions := Seq(
-    "-encoding", "utf-8",  // Specify character encoding used by source files.
-    "-deprecation",        // Emit warning and location for usages of deprecated APIs.
-    "-feature",            // Emit warning and location for usages of features that should be imported explicitly.
-    "-explain",            // Explain errors in more detail.
-    "-explain-types",      // Explain type errors in more detail.
-    "-unchecked",          // Enable additional warnings where generated code depends on assumptions.
-    "-Xfatal-warnings",    // Fail the compilation if there are any warnings.
-    "-new-syntax",         // Require `then` and `do` in control expressions.
-    "-rewrite",
-    "-source:future-migration",
-  )
+ThisBuild / javacOptions := Seq(
+  "-source", "11",
+  "-Xlint:unchecked",
+  "-Xlint:deprecation"
 )
 
 lazy val root = (project in file("."))
   .aggregate(exercises, answers)
-  .settings(commonSettings)
   .settings(
     name := "fpinscala3"
   )
 
 lazy val exercises = (project in file("exercises"))
-  .settings(commonSettings)
   .settings(
     name := "exercises"
   )
 
 lazy val answers = (project in file("answers"))
-  .settings(commonSettings)
   .settings(
     name := "answers"
   )
